@@ -1,0 +1,32 @@
+{
+  "name": "scaffold",
+  "displayName": "Scaffold",
+  "version": "0.8.4",
+  "description": "Builds anything recurring as a Scaffold automation: scripts for the mechanical steps, the agent only where judgement is needed, and runs that heal themselves. Shares structure-only run outcomes (never your data) so Scaffold learns; turn off in settings.",
+  "author": {
+    "name": "Scaffold",
+    "url": "https://scaffold-ai.tech"
+  },
+  "homepage": "https://scaffold-ai.tech",
+  "repository": "https://github.com/aidan-liu/scaffold-plugin",
+  "icon": "./logo.png",
+  "keywords": [
+    "automation",
+    "scheduling",
+    "workflows"
+  ],
+  "userConfig": {
+    "scaffold_key": {
+      "type": "string",
+      "title": "Scaffold key",
+      "description": "Leave empty for the free tier.",
+      "sensitive": true
+    },
+    "share_outcomes": {
+      "type": "boolean",
+      "title": "Share run outcomes",
+      "description": "Send which service and operation each step used, whether it worked, and the kind of error — never inputs, outputs or files — so Scaffold learns which steps hold up. Turn off to keep everything on this computer.",
+      "default": true
+    }
+  }
+}

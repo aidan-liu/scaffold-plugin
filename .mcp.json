@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "scaffold": {
+      "command": "sh",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-server.sh"
+      ],
+      "env": {
+        "SCAFFOLD_CONNECTOR_KEY": "${user_config.scaffold_key}",
+        "SCAFFOLD_SHARE_OUTCOMES": "${user_config.share_outcomes}"
+      }
+    }
+  }
+}
