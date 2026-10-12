@@ -14588,7 +14588,7 @@ async function callTool(name, args, ctx) {
 }
 
 // src/server.ts
-var SERVER_INFO = { name: "scaffold", title: "Scaffold", version: "0.8.5", icons: ICONS };
+var SERVER_INFO = { name: "scaffold", title: "Scaffold", version: "0.8.6", icons: ICONS };
 var INSTRUCTIONS = [
   "Scaffold turns a recurring workflow into a durable automation: scripts for the deterministic steps, the agent only where judgement is needed, and runs that heal from their own history.",
   "Its tools fit together in order: get_method explains the method, render_plan draws a plan, classify_plan checks it against shared run evidence, write_automation_files writes the scripts and scaffold.plan.json where a client can't write files itself, and schedule_automation registers the plan and returns the prompt a scheduler runs it with.",

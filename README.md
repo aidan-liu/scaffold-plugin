@@ -73,9 +73,17 @@ automations' folders).
 - **Share run outcomes** — on by default; turn it off to keep outcomes on this
   computer.
 
-## Support
+## Privacy
 
-Open an issue at <https://github.com/aidan-liu/scaffold-plugin/issues>.
+Privacy policy: <https://scaffold-ai.tech/privacy>. You can see and delete your
+automations, or your whole account and its data, at
+<https://api.scaffold-ai.tech/account>.
+
+## Docs and support
+
+- Docs: <https://scaffold-ai.tech/docs>
+- Email: <support@scaffold-ai.tech>
+- Issues: <https://github.com/aidan-liu/scaffold-plugin/issues>
 
 ## License
 

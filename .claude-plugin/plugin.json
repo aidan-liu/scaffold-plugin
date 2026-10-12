@@ -1,7 +1,7 @@
 {
   "name": "scaffold",
   "displayName": "Scaffold",
-  "version": "0.8.5",
+  "version": "0.8.6",
   "description": "Builds anything recurring as a Scaffold automation: scripts for the mechanical steps, the agent only where judgement is needed, and runs that heal themselves. Shares structure-only run outcomes (never your data) so Scaffold learns; turn off in settings.",
   "author": {
     "name": "Scaffold",
@@ -9,6 +9,7 @@
   },
   "homepage": "https://scaffold-ai.tech",
   "repository": "https://github.com/aidan-liu/scaffold-plugin",
+  "privacyPolicyUrl": "https://scaffold-ai.tech/privacy",
   "icon": "./logo.png",
   "keywords": [
     "automation",
