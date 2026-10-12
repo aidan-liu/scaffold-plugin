@@ -16,15 +16,16 @@ runs that heal themselves from their own history.
 - **Ask how an automation is doing** to see its runs, roughly how many tokens
   its scripts saved, and what Scaffold healed and why.
 
-For chat, add the Scaffold connector once: Customize → Connectors → Add custom
-connector, with the URL `https://api.scaffold-ai.tech/mcp`. Running
-automations needs Node.js 22.13 or newer on your computer.
+The plugin includes the **Scaffold connector** (`scaffold`,
+`https://api.scaffold-ai.tech/mcp`): connect it once from the plugin's
+Connectors tab and sign in with Google. Running automations needs Node.js 22.13
+or newer on your computer.
 
 ## What it runs on your computer
 
 - **The `scaffold-automations` skill** — instructions that tell Claude to build
   recurring requests with Scaffold.
-- **A local server** (`server/server.mjs`, started by `scripts/scaffold-server.sh`,
+- **A local server**, `scaffold-local` (`server/server.mjs`, started by `scripts/scaffold-server.sh`,
   which looks for Node.js 22.13+). It provides Scaffold's tools and runs an
   automation's script steps in that automation's folder under `~/Scaffold/`.
   It only runs the commands you were shown when the automation was scheduled:

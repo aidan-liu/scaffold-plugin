@@ -12080,6 +12080,33 @@ var KnowledgeStore = class {
     const row = this.db.prepare("SELECT account_id, plan, admin FROM accounts WHERE account_id = ?").get(accountId);
     return row ? { accountId: row.account_id, tier: row.plan, ...row.admin ? { admin: true } : {} } : ANONYMOUS;
   }
+  /**
+   * Everything this store holds for an account, gone: its keys, the run outcomes
+   * it shared (found by its contributor hash), and its field-note reports. A note
+   * it wrote stays only if other accounts reported the same fact, and is then
+   * credited to one of them, with its corroborations recounted.
+   */
+  deleteAccount(accountId) {
+    const contributor = this.contributorId(accountId);
+    this.db.exec("BEGIN");
+    try {
+      this.db.prepare("DELETE FROM accounts WHERE account_id = ?").run(accountId);
+      this.db.prepare("DELETE FROM run_outcomes WHERE contributor = ?").run(contributor);
+      this.db.prepare("DELETE FROM field_note_reports WHERE account_id = ?").run(accountId);
+      this.db.prepare("DELETE FROM field_notes WHERE account_id = ? AND NOT EXISTS (SELECT 1 FROM field_note_reports r WHERE r.note_id = field_notes.id)").run(accountId);
+      this.db.prepare(
+        `UPDATE field_notes SET
+             account_id = (SELECT r.account_id FROM field_note_reports r WHERE r.note_id = field_notes.id ORDER BY r.created_at LIMIT 1),
+             corroborations = (SELECT COUNT(*) FROM field_note_reports r WHERE r.note_id = field_notes.id),
+             verified = CASE WHEN (SELECT COUNT(*) FROM field_note_reports r WHERE r.note_id = field_notes.id) >= ${CORROBORATION_THRESHOLD} THEN 1 ELSE 0 END
+           WHERE account_id = ?`
+      ).run(accountId);
+      this.db.exec("COMMIT");
+    } catch (error40) {
+      this.db.exec("ROLLBACK");
+      throw error40;
+    }
+  }
   /** The seam for real auth and billing: the demo key and the tests use it
    *  today; later an OAuth or Stripe webhook writes the same row. */
   upsertAccount(apiKey, accountId, tier) {
@@ -14561,7 +14588,7 @@ async function callTool(name, args, ctx) {
 }
 
 // src/server.ts
-var SERVER_INFO = { name: "scaffold", title: "Scaffold", version: "0.8.4", icons: ICONS };
+var SERVER_INFO = { name: "scaffold", title: "Scaffold", version: "0.8.5", icons: ICONS };
 var INSTRUCTIONS = [
   "Scaffold turns a recurring workflow into a durable automation: scripts for the deterministic steps, the agent only where judgement is needed, and runs that heal from their own history.",
   "Its tools fit together in order: get_method explains the method, render_plan draws a plan, classify_plan checks it against shared run evidence, write_automation_files writes the scripts and scaffold.plan.json where a client can't write files itself, and schedule_automation registers the plan and returns the prompt a scheduler runs it with.",

@@ -1,6 +1,10 @@
 {
   "mcpServers": {
     "scaffold": {
+      "type": "http",
+      "url": "https://api.scaffold-ai.tech/mcp"
+    },
+    "scaffold-local": {
       "command": "sh",
       "args": [
         "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold-server.sh"

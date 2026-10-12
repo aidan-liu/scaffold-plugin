@@ -12,10 +12,10 @@ create a scheduled task first and don't do the steps yourself.
 
 1. Tell the person **"Using Scaffold"**.
 2. Load Scaffold's tools — search your tools for "Scaffold". In Claude chat
-   they come from the Scaffold connector on the person's account; if it isn't
-   there, tell them to add it once under Customize → Connectors → Add custom
-   connector, with the URL https://api.scaffold-ai.tech/mcp. That one
-   connection reaches chat, Cowork and Claude Code.
+   they come from the Scaffold connector; if it isn't connected, tell the
+   person to connect it once from the Scaffold plugin's Connectors tab (or
+   Customize → Connectors). That one connection reaches chat, Cowork and
+   Claude Code.
 3. Call `get_method` and follow it: split the work into scripts and agent
    steps, draw it with `render_plan`, check it with `classify_plan`, then save
    it with `schedule_automation`. Where you can write files, write the scripts
