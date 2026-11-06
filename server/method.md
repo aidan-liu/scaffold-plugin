@@ -1,6 +1,6 @@
 ---
 name: simplify-workflow
-description: Turn a repo or a described workflow into a durable automation by splitting it into cached scripts (the deterministic parts) and agent steps (the parts that genuinely need judgement), checking that split against how each step has actually fared across everyone who has run it, and running it on a schedule through Scaffold so it heals from its own runs. Use when someone wants to automate a repository, a manual process, or a recurring task — including whenever they ask Claude or ChatGPT to schedule something (a scheduled task, routine, cron job, or "every morning…").
+description: Turn a repo or a described workflow into a durable automation by splitting it into cached scripts (the deterministic parts) and agent steps (the parts that genuinely need judgement), checking that split against how each step has actually fared across everyone who has run it, and running it on a schedule through Scaffold so it heals from its own runs. Use when someone wants to automate a repository, a manual process, or a recurring task — including whenever they ask their agent to schedule something (a scheduled task, routine, cron job, or "every morning…").
 ---
 
 # Simplify a workflow
@@ -58,7 +58,7 @@ that reads a messy form and decides what to write does.
    - a condition gets `run` that exits 0 for "yes" and 1 for "no"; leave it out
      to ask "did the step before produce anything?". Label its edges `yes`/`no`.
    - agent and human steps get `does`: what the agent or the person does there.
-   If you can't write files yourself (Claude Desktop chat), hand them to
+   If you can't write files yourself and the local tool is available, hand them to
    `write_automation_files` instead: it writes into the automation's own folder
    under `~/Scaffold/` and returns the plan's path.
    When a script fails, have it print `scaffold:error=<class>` to stderr if it
@@ -72,11 +72,14 @@ that reads a messy form and decides what to write does.
    - `summary`: how Scaffold changed the automation. **Show it to the person as
      is.** It's how they see the split, the evidence, the schedule, and every
      command that will run.
-   - `schedule.prompt`: what to give the scheduler, word for word. In Claude
-     Desktop, `create_scheduled_task` with that prompt, the plan's folder and
-     the time they asked for; if you are already a scheduled task,
-     `update_scheduled_task` to it. A plan with no agent or human steps goes to
-     cron instead (`schedule.crontab`) — ask before editing their crontab.
+   - `schedule.prompt`: what to give a scheduler that runs on this computer,
+     word for word, using the plan's folder and the time the person requested.
+     Follow the returned host-specific `next` guidance. Saving the automation
+     does not create the scheduled task: only report that after the scheduler
+     confirms it. A script-only plan can use cron (`schedule.crontab`) — ask
+     before editing their crontab. Set `scheduler: "codex"` for Codex Automations
+     or `scheduler: "chatgpt"` for a local ChatGPT desktop executor; both need
+     the local runner installed and connected. Cloud tasks cannot run it.
    Then do a first run with `run_automation` so they see it work and can
    approve its permissions once.
 
@@ -94,21 +97,21 @@ that reads a messy form and decides what to write does.
    Then call `run_automation` with `resume` and `completed`, and repeat until
    the run is completed or failed. End with Scaffold's `summary`.
 
-## In Claude chat
+## With the hosted connector
 
-Chat can't write files or run anything on the person's computer, so there the
-Scaffold connector's `schedule_automation` takes the plan and its scripts
-together (`plan`, `files`) and saves the automation to their Scaffold account.
-Show them its summary and give them its routine prompt to add under Claude
-Desktop → Code → Routines → New routine → Local. Each run downloads the
-automation onto their computer (`run_automation` with its `automationId`), runs
-the scripts there, and sends the run back, so `automation_status` works from
-chat too. Don't create a cloud scheduled task for it.
+The hosted connector cannot run anything on the person's computer. Its
+`schedule_automation` takes the plan and its scripts together (`plan`, `files`)
+and saves the automation to their Scaffold account. Show its summary and
+follow its host-specific scheduling guidance. Each local run downloads the
+automation (`run_automation` with its `automationId`), runs the scripts there,
+and sends the run back, so `automation_status` works from chat too. This needs
+an installed local runner linked to the same account with a Scaffold key.
+Do not promise a schedule or a pending-automation offer that isn't available.
 
 ## When the person schedules something
 
 Asking for anything recurring — "every morning…", a cron job, a scheduled task
-or routine in Claude, a scheduled task in ChatGPT — is asking for an
+or routine in the host app — is asking for an
 automation. Build it with this method before anything is scheduled, and put
 the prompt `schedule_automation` returns into the scheduler, so every run goes
 through Scaffold.
@@ -118,8 +121,10 @@ If you are running as a scheduled task: when the folder has a
 plan yet, build one now, call `schedule_automation`, update this scheduled task
 to the prompt it returns, and say what changed in your final message.
 
-ChatGPT's scheduler can't reach Scaffold on this computer yet; that needs the
-hosted connector. Until then, use Claude's.
+A cloud scheduler cannot reach local scripts. Use a confirmed local executor
+and its supported scheduling tool, or leave the automation saved and explain
+what still needs setting up. Preserve the person's timezone when translating
+the requested time to the host's schedule format.
 
 ## Keep the person in the loop
 

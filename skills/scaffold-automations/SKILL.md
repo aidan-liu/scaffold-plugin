@@ -49,3 +49,30 @@ much it saved, call `automation_status`.
 
 If no Scaffold tools are available, tell the person Scaffold isn't connected
 instead of building the automation without it.
+
+## Run with the desktop app closed
+
+When the user wants app-closed execution, register the local plan with
+`scheduler: "codex-cli"` or `scheduler: "claude-code"`, a numeric five-field
+`cron`, and `agentExecutable` set to the chosen CLI's absolute executable path.
+Respect the user's provider choice; if none is clear, ask which installed CLI
+they want to use. This is separate from a desktop/native schedule.
+
+Test the returned command once before installing it in the system scheduler.
+`schedule.crontab` is a proposal, not an installed task. Inspect existing entries
+by plan path, preserve unrelated entries, and update rather than duplicate.
+For a requested migration, remove the old native schedule after the replacement
+is verified. Never silently move an existing schedule or choose a cloud executor.
+
+The CLI must already be signed in. Use its interactive login if needed; never
+ask for keys in chat or put secrets in a cron entry. The computer must be awake;
+AI steps need internet and use provider account limits/billing. Scaffold calls
+the CLI only for agent/repair steps, using supplied text inputs and structured
+output. Put external side effects in reviewed scripts; tasks needing interactive
+tools, large inputs, missing context or human approval remain for interactive
+handling. A repair may replace only the supplied script and is rerun to verify it.
+
+If a headless run waits or fails to launch its CLI, inspect the local log/status
+and resume the waiting run interactively. Do not restart side-effecting steps to
+work around a waiting run. A stale `.scaffold/headless.lock` can be removed only
+after confirming its runner and any agent processes have stopped.
