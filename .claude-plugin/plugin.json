@@ -10,10 +10,12 @@
   "homepage": "https://scaffold-ai.tech",
   "repository": "https://github.com/aidan-liu/scaffold-plugin",
   "privacyPolicyUrl": "https://scaffold-ai.tech/privacy",
+  "termsOfServiceUrl": "https://scaffold-ai.tech/terms",
   "icon": "./logo.png",
   "keywords": [
     "automation",
     "scheduling",
     "workflows"
-  ]
+  ],
+  "license": "Proprietary"
 }
