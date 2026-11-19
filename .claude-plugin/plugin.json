@@ -1,7 +1,7 @@
 {
   "name": "scaffold",
   "displayName": "Scaffold",
-  "version": "0.13.1",
+  "version": "0.13.2",
   "description": "Builds anything recurring as a Scaffold automation: scripts for the mechanical steps, the agent only where judgement is needed, and runs that heal themselves. Plans, saves and reports through Scaffold's hosted connector.",
   "author": {
     "name": "Scaffold LLC",
