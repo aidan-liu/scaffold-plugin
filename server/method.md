@@ -105,7 +105,9 @@ and saves the automation to their Scaffold account. Show its summary and
 follow its host-specific scheduling guidance. Each local run downloads the
 automation (`run_automation` with its `automationId`), runs the scripts there,
 and sends the run back, so `automation_status` works from chat too. This needs
-an installed local runner linked to the same account with a Scaffold key.
+the local runner installed and this computer linked to the same account:
+the local `link_computer` tool opens the browser to allow it, and signing in to
+Scaffold for Mac links it too.
 Do not promise a schedule or a pending-automation offer that isn't available.
 
 ## When the person schedules something

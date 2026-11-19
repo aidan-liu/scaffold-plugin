@@ -44,6 +44,12 @@ When a session starts with a note from Scaffold about automations saved from
 chat that haven't run on this computer, offer to set each one up as it says —
 one short question, and create nothing without a yes.
 
+Automations saved from chat reach this computer only once it's linked to the
+person's Scaffold account. When they want that, or `pending_automations` says
+`not_linked`, call the local `link_computer`: it opens their browser to allow
+this computer. Tell them to allow it there, then call it again to confirm.
+Never ask for a key in chat.
+
 When the person asks how an automation is doing, what Scaffold changed, or how
 much it saved, call `automation_status`.
 

@@ -14866,14 +14866,17 @@ function startRepeats(job, deps) {
     deps.history.releaseRepeats(job.automationId);
   }
 }
+function accountApiUrl() {
+  const override = process.env.SCAFFOLD_API_URL?.trim();
+  return override === "off" ? "" : override || HOSTED_API_URL;
+}
 function openContext(log2) {
   const dbPath = process.env.SCAFFOLD_CONNECTOR_DB || path13.join(process.env.HOME || ".", ".scaffold-connector", "connector.sqlite");
   const dataDir = path13.dirname(dbPath);
   const store = new KnowledgeStore(dbPath);
   const shareOutcomes = !/^(false|0|off|no)$/i.test(process.env.SCAFFOLD_SHARE_OUTCOMES?.trim() ?? "");
   const key = resolveKey(dataDir);
-  const override = process.env.SCAFFOLD_API_URL?.trim();
-  const apiUrl = override === "off" ? "" : override || HOSTED_API_URL;
+  const apiUrl = accountApiUrl();
   let session;
   if (key && apiUrl && !LOCAL_ONLY_KEYS.has(key)) {
     const remote = new RemoteSession({
@@ -14907,7 +14910,69 @@ function openContext(log2) {
     startRepeats: (job) => startRepeats(job, { history, entry, startedBy: starter === "app" ? "app" : "schedule" })
   });
   const mode = session instanceof RemoteSession ? "hosted" : "local";
-  return { dbPath, dataDir, store, session, history, runner, entry, mode, host };
+  return { dbPath, dataDir, apiUrl, store, session, history, runner, entry, mode, host };
+}
+
+// src/link-chat.ts
+function createChatLinker(options) {
+  const link = options.link ?? linkWithBrowser;
+  let attempt = null;
+  return async function linkComputer() {
+    if (!options.apiUrl) {
+      return { ok: false, status: "off", message: "Scaffold's server is turned off on this computer (SCAFFOLD_API_URL=off), so it can't be linked to an account." };
+    }
+    if (attempt?.state === "waiting") {
+      return { ok: true, status: "waiting", url: attempt.url, message: "Still waiting for the person to sign in to Scaffold and allow this computer in the browser. Call link_computer again once they have." };
+    }
+    if (attempt?.state === "linked") {
+      const finished = attempt;
+      attempt = null;
+      return { ok: true, status: "linked", message: `${finished.name} is linked to the person's Scaffold account. Automations saved to the account from chat can now run here; pending_automations lists them.` };
+    }
+    if (attempt?.state === "failed") {
+      const failed = attempt;
+      attempt = null;
+      return { ok: false, status: "failed", message: `${failed.error} Call link_computer to try again.` };
+    }
+    if (options.isLinked()) {
+      return { ok: true, status: "linked", message: "This computer is already linked to a Scaffold account." };
+    }
+    const current = { state: "waiting" };
+    attempt = current;
+    let urlShown = () => void 0;
+    const shown = new Promise((resolve) => urlShown = resolve);
+    void link({
+      dataDir: options.dataDir,
+      apiUrl: options.apiUrl,
+      open: (url2) => {
+        current.url = url2;
+        urlShown();
+        return (options.openUrl ?? openInBrowser)(url2);
+      }
+    }).then(
+      ({ name }) => {
+        current.state = "linked";
+        current.name = name;
+        options.onLinked();
+      },
+      (error40) => {
+        current.state = "failed";
+        current.error = error40 instanceof Error ? error40.message : "Linking failed. Nothing was linked.";
+        urlShown();
+      }
+    );
+    await Promise.race([shown, new Promise((resolve) => setTimeout(resolve, options.urlWaitMs ?? 5e3))]);
+    if (current.state === "failed") {
+      attempt = null;
+      return { ok: false, status: "failed", message: `${current.error} Call link_computer to try again.` };
+    }
+    return {
+      ok: true,
+      status: "waiting",
+      url: current.url,
+      message: "The browser is open at Scaffold's sign-in. The person signs in and allows this computer there, then call link_computer again to confirm. If no browser opened, give them the url."
+    };
+  };
 }
 
 // src/runner/recurrence.ts
@@ -14964,7 +15029,7 @@ async function schedulingNote(deps) {
   ].join("\n");
 }
 async function pendingAutomations(deps) {
-  if (!deps.remote) return { status: "not_linked", automations: [], recorded: [], next: "Link the local runner using a computer key from your Scaffold account. Run the launcher's link command in your own terminal; never paste keys into chat." };
+  if (!deps.remote) return { status: "not_linked", automations: [], recorded: [], next: "Link this computer to the Scaffold account: call link_computer, which opens the browser to allow the computer. The launcher's link command in a terminal, or signing in to Scaffold for Mac, links it too. Never paste keys into chat." };
   const listed = await deps.remote.listAutomations();
   if ("unreachable" in listed) return { status: "unavailable", automations: [], recorded: [], next: "Could not list account automations. Check the connection and whether the computer key is still valid. No scheduling state was changed." };
   const views = listed.automations.map((automation) => ({
@@ -15756,6 +15821,13 @@ var TOOLS = [
     effect: { readOnlyHint: true, openWorldHint: true }
   },
   {
+    name: "link_computer",
+    title: "Scaffold \xB7 Link this computer",
+    description: "Link this computer to the person's Scaffold account, so automations they save from chat can run here. Opens their browser at Scaffold's sign-in, where they allow this computer; returns at once with status waiting, and a later call returns linked or failed. No key passes through the chat. Free.",
+    inputSchema: NO_ARGS,
+    effect: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true }
+  },
+  {
     name: "record_automation_schedule",
     title: "Scaffold \xB7 Record scheduling outcome",
     description: "Record the host-confirmed scheduler ID or the person's declined offer for an account automation version on this computer. Does not change the host scheduler. Replaces an earlier local receipt.",
@@ -15897,6 +15969,10 @@ async function callTool(name, args, ctx) {
     case "pending_automations":
       if (Object.keys(args).length) return { ok: false, message: "pending_automations takes no arguments." };
       return pendingAutomations({ remote: session instanceof RemoteSession ? session : null, history: ctx.history });
+    case "link_computer":
+      if (Object.keys(args).length) return { ok: false, message: "link_computer takes no arguments." };
+      if (!ctx.linkComputer) return { ok: false, status: "off", message: "Linking isn't available from here. Run the launcher's link command in your own terminal, or sign in to Scaffold for Mac." };
+      return ctx.linkComputer();
     case "record_automation_schedule":
       return recordAutomationSchedule(args, { remote: session instanceof RemoteSession ? session : null, history: ctx.history });
     case "get_method":
@@ -15951,7 +16027,7 @@ async function callTool(name, args, ctx) {
 }
 
 // src/server.ts
-var SERVER_INFO = { name: "scaffold", title: "Scaffold", version: "0.13.0", icons: ICONS };
+var SERVER_INFO = { name: "scaffold", title: "Scaffold", version: "0.13.1", icons: ICONS };
 var INSTRUCTIONS = [
   "Scaffold turns a recurring workflow into a durable automation: scripts for the deterministic steps, the agent only where judgement is needed, and runs that heal from their own history.",
   "Its tools fit together in order: get_method explains the method, render_plan draws a plan, classify_plan checks it against shared run evidence, write_automation_files writes the scripts and scaffold.plan.json where a client can't write files itself, and schedule_automation registers the plan and returns the prompt a scheduler runs it with.",
@@ -15962,7 +16038,16 @@ var INSTRUCTIONS = [
 var log = (...args) => process.stderr.write(`[connector] ${args.join(" ")}
 `);
 function startServer() {
-  const context = openContext(log);
+  let context = openContext(log);
+  const linkComputer = createChatLinker({
+    dataDir: context.dataDir,
+    apiUrl: context.apiUrl,
+    isLinked: () => context.session instanceof RemoteSession,
+    onLinked: () => {
+      context = openContext(log);
+      log(`linked to a Scaffold account (${context.mode} knowledge)`);
+    }
+  });
   const send = (message) => process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", ...message })}
 `);
   const surface = {
@@ -15973,7 +16058,7 @@ function startServer() {
     callTool: (name, args, meta) => {
       const token = meta?.progressToken;
       const progress = token === void 0 ? void 0 : (message, progress2, total) => send({ method: "notifications/progress", params: { progressToken: token, progress: progress2, total, message } });
-      return callTool(name, args, { ...context, progress });
+      return callTool(name, args, { ...context, progress, linkComputer });
     }
   };
   async function handle(rpc) {
