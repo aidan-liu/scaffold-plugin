@@ -4,6 +4,9 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
+// src/server.ts
+import path16 from "node:path";
+
 // src/runner/agent-limits.ts
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -660,10 +663,10 @@ function assignProp(target, prop, value) {
     configurable: true
   });
 }
-function getElementAtPath(obj, path15) {
-  if (!path15)
+function getElementAtPath(obj, path17) {
+  if (!path17)
     return obj;
-  return path15.reduce((acc, key) => acc?.[key], obj);
+  return path17.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -983,11 +986,11 @@ function aborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path15, issues) {
+function prefixIssues(path17, issues) {
   return issues.map((iss) => {
     var _a;
     (_a = iss).path ?? (_a.path = []);
-    iss.path.unshift(path15);
+    iss.path.unshift(path17);
     return iss;
   });
 }
@@ -1124,7 +1127,7 @@ function treeifyError(error40, _mapper) {
     return issue2.message;
   };
   const result = { errors: [] };
-  const processError = (error41, path15 = []) => {
+  const processError = (error41, path17 = []) => {
     var _a, _b;
     for (const issue2 of error41.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
@@ -1134,7 +1137,7 @@ function treeifyError(error40, _mapper) {
       } else if (issue2.code === "invalid_element") {
         processError({ issues: issue2.issues }, issue2.path);
       } else {
-        const fullpath = [...path15, ...issue2.path];
+        const fullpath = [...path17, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -1164,9 +1167,9 @@ function treeifyError(error40, _mapper) {
   processError(error40);
   return result;
 }
-function toDotPath(path15) {
+function toDotPath(path17) {
   const segs = [];
-  for (const seg of path15) {
+  for (const seg of path17) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -11357,6 +11360,78 @@ var WRITE_AUTOMATION_FILES_JSON_SCHEMA = forTool(writeAutomationFilesInput);
 var AUTOMATION_STATUS_JSON_SCHEMA = forTool(automationStatusInput);
 var SAVE_AUTOMATION_JSON_SCHEMA = forTool(saveAutomationInput);
 
+// ../lib/scaffold-contract/src/credentials.ts
+var CREDENTIAL_KINDS = {
+  calendly: {
+    title: "Calendly",
+    help: "A personal access token from the Calendly account whose bookings it reads: Integrations, then API & webhooks, then Personal access tokens.",
+    link: "https://calendly.com/integrations/api_webhooks",
+    fields: [{ name: "CALENDLY_TOKEN", label: "Personal access token", secret: true }]
+  },
+  gmail: {
+    title: "Gmail account that sends",
+    help: "Sign in with the Google account emails should come from. Scaffold asks only for permission to send email as it, never to read the inbox.",
+    link: null,
+    signIn: "google",
+    fields: [
+      { name: "GMAIL_ADDRESS", label: "Gmail address", secret: false },
+      { name: "GMAIL_REFRESH_TOKEN", label: "Google sign-in", secret: true },
+      { name: "GOOGLE_CLIENT_ID", label: "Google client", secret: false },
+      { name: "GOOGLE_CLIENT_SECRET", label: "Google client secret", secret: true }
+    ]
+  },
+  notify_email: {
+    title: "Email for alerts",
+    help: "Where summaries and alerts go, such as the business owner\u2019s own inbox.",
+    link: null,
+    fields: [{ name: "NOTIFY_EMAIL", label: "Email address", secret: false, placeholder: "owner@example.com" }]
+  },
+  twilio: {
+    title: "Twilio texting",
+    help: "From the Twilio console: the account SID and auth token, and the number texts come from.",
+    link: "https://console.twilio.com",
+    fields: [
+      { name: "TWILIO_ACCOUNT_SID", label: "Account SID", secret: false, placeholder: "AC\u2026" },
+      { name: "TWILIO_AUTH_TOKEN", label: "Auth token", secret: true },
+      { name: "TWILIO_FROM_NUMBER", label: "Number texts come from", secret: false, placeholder: "+15125550100" }
+    ]
+  },
+  slack_webhook: {
+    title: "Slack channel",
+    help: "An incoming webhook URL for the channel messages go to.",
+    link: "https://api.slack.com/messaging/webhooks",
+    fields: [{ name: "SLACK_WEBHOOK_URL", label: "Webhook URL", secret: true }]
+  }
+};
+var CREDENTIAL_NAME = /^[A-Z][A-Z0-9_]{1,63}$/;
+var CREDENTIALS_OWNER = /^[a-z0-9][a-z0-9._-]{0,31}$/;
+function credentialNeeds(declared) {
+  const file2 = declared ?? {};
+  if (typeof file2.for !== "string" || !CREDENTIALS_OWNER.test(file2.for)) return null;
+  const kinds = [];
+  for (const kind of Array.isArray(file2.needs) ? file2.needs : []) {
+    const known = typeof kind === "string" ? CREDENTIAL_KINDS[kind] : void 0;
+    if (known && !kinds.some((each) => each.kind === kind)) kinds.push({ kind, ...known });
+  }
+  const custom2 = Array.isArray(file2.custom) ? file2.custom : Array.isArray(file2.credentials) ? file2.credentials : [];
+  for (const each of custom2.slice(0, 20)) {
+    const name = each?.name;
+    if (typeof name !== "string" || !CREDENTIAL_NAME.test(name) || kinds.some((kind) => kind.fields.some((field) => field.name === name))) continue;
+    const label = typeof each.label === "string" ? each.label.slice(0, 120) : name;
+    const help = typeof each.help === "string" ? each.help.slice(0, 300) : "";
+    kinds.push({ kind: `custom:${name}`, title: label, help, link: null, fields: [{ name, label, secret: true }] });
+  }
+  return kinds.length ? { owner: file2.for, kinds } : null;
+}
+function credentialNamesSet(text) {
+  const set2 = /* @__PURE__ */ new Set();
+  for (const line of text.split("\n")) {
+    const at = line.indexOf("=");
+    if (at > 0 && !line.trimStart().startsWith("#") && line.slice(at + 1).trim()) set2.add(line.slice(0, at).trim());
+  }
+  return set2;
+}
+
 // src/runner/agent-limits.ts
 var REASON_TEXT = {
   usage_limit: "is out of usage",
@@ -11528,16 +11603,38 @@ function agentLimits(dataDir, now = () => /* @__PURE__ */ new Date()) {
   };
 }
 
+// src/runner/credentials.ts
+import { readFileSync as readFileSync2 } from "node:fs";
+import os from "node:os";
+import path2 from "node:path";
+function missingCredentials(planPath, secretsDir = path2.join(os.homedir(), ".scaffold-secrets")) {
+  let declared;
+  try {
+    declared = JSON.parse(readFileSync2(path2.join(path2.dirname(planPath), "credentials.json"), "utf8"));
+  } catch {
+    return [];
+  }
+  const needs = credentialNeeds(declared);
+  if (!needs) return [];
+  let text = "";
+  try {
+    text = readFileSync2(path2.join(secretsDir, `${needs.owner}.env`), "utf8");
+  } catch {
+  }
+  const set2 = credentialNamesSet(text);
+  return needs.kinds.filter((kind) => kind.fields.some((field) => !set2.has(field.name))).map((kind) => kind.title);
+}
+
 // src/runner/headless.ts
 import { spawn } from "node:child_process";
-import { accessSync, constants, existsSync as existsSync3, lstatSync, mkdirSync as mkdirSync2, mkdtempSync, readFileSync as readFileSync3, realpathSync as realpathSync2, rmSync, statSync, writeFileSync as writeFileSync2 } from "node:fs";
-import os from "node:os";
-import path3 from "node:path";
+import { accessSync, constants, existsSync as existsSync3, lstatSync, mkdirSync as mkdirSync2, mkdtempSync, readFileSync as readFileSync4, realpathSync as realpathSync2, rmSync, statSync, writeFileSync as writeFileSync2 } from "node:fs";
+import os2 from "node:os";
+import path4 from "node:path";
 
 // src/runner/plan-file.ts
 import { createHash } from "node:crypto";
-import { existsSync as existsSync2, readFileSync as readFileSync2, realpathSync } from "node:fs";
-import path2 from "node:path";
+import { existsSync as existsSync2, readFileSync as readFileSync3, realpathSync } from "node:fs";
+import path3 from "node:path";
 
 // src/runner/graph.ts
 function buildGraph(plan2) {
@@ -11653,11 +11750,11 @@ function inputsFor(graph, id, statuses, branches, outputs) {
 
 // src/runner/plan-file.ts
 function loadPlanFile(planPath) {
-  const resolved = path2.resolve(planPath);
+  const resolved = path3.resolve(planPath);
   if (!existsSync2(resolved)) return { ok: false, problems: [{ path: "planPath", message: `no plan at ${resolved}` }] };
   let raw;
   try {
-    raw = JSON.parse(readFileSync2(resolved, "utf8"));
+    raw = JSON.parse(readFileSync3(resolved, "utf8"));
   } catch (error40) {
     return { ok: false, problems: [{ path: "planPath", message: `not valid JSON: ${error40 instanceof Error ? error40.message : String(error40)}` }] };
   }
@@ -11666,7 +11763,7 @@ function loadPlanFile(planPath) {
   const problems = runnableProblems(parsed.plan);
   if (problems.length) return { ok: false, problems };
   const real = realpathSync(resolved);
-  return { ok: true, plan: parsed.plan, planPath: real, planDir: path2.dirname(real) };
+  return { ok: true, plan: parsed.plan, planPath: real, planDir: path3.dirname(real) };
 }
 var sha256 = (text) => createHash("sha256").update(text).digest("hex");
 var automationId = (planPath) => sha256(planPath).slice(0, 12);
@@ -11678,7 +11775,7 @@ function fingerprint(plan2) {
     })
   );
 }
-var automationName = (plan2, planDir) => plan2.name ?? path2.basename(planDir);
+var automationName = (plan2, planDir) => plan2.name ?? path3.basename(planDir);
 var SCRIPT_FILE = /\.(py|js|mjs|cjs|ts|sh|rb|php|pl)$/;
 function scriptsNamed(plan2) {
   const named = [];
@@ -11692,16 +11789,16 @@ function scriptsNamed(plan2) {
   return named;
 }
 function missingScripts(plan2, planDir) {
-  return scriptsNamed(plan2).filter(({ file: file2 }) => !existsSync2(path2.resolve(planDir, file2))).map(({ stepId, file: file2 }) => `step "${stepId}" runs ${file2}, which isn't in ${planDir}`);
+  return scriptsNamed(plan2).filter(({ file: file2 }) => !existsSync2(path3.resolve(planDir, file2))).map(({ stepId, file: file2 }) => `step "${stepId}" runs ${file2}, which isn't in ${planDir}`);
 }
 
 // src/runner/headless.ts
 var ANSWER_SCHEMA = { type: "object", additionalProperties: false, required: ["ok", "output", "repair"], properties: { ok: { type: "boolean" }, output: { type: "string" }, repair: { type: ["string", "null"] } } };
 function resolveAgent(provider, explicit) {
   const name = provider === "codex" ? "codex" : "claude";
-  const candidates2 = explicit ? [explicit] : (process.env.PATH ?? "").split(path3.delimiter).filter(Boolean).map((dir) => path3.resolve(dir, name));
+  const candidates2 = explicit ? [explicit] : (process.env.PATH ?? "").split(path4.delimiter).filter(Boolean).map((dir) => path4.resolve(dir, name));
   for (const file2 of candidates2) {
-    if (!path3.isAbsolute(file2)) continue;
+    if (!path4.isAbsolute(file2)) continue;
     try {
       accessSync(file2, constants.X_OK);
       if (statSync(file2).isFile()) return file2;
@@ -11711,13 +11808,13 @@ function resolveAgent(provider, explicit) {
   throw new Error(`Install and sign into ${name}, then supply its absolute path with agentExecutable / --agent-bin.`);
 }
 function agentArgs(provider, dir) {
-  return provider === "codex" ? ["exec", "--ignore-user-config", "--sandbox", "read-only", "-c", 'approval_policy="never"', "--skip-git-repo-check", "--ephemeral", "--output-schema", path3.join(dir, "schema.json"), "--output-last-message", path3.join(dir, "answer.json"), "-"] : ["-p", "--output-format", "json", "--json-schema", JSON.stringify(ANSWER_SCHEMA), "--permission-mode", "dontAsk", "--tools", "", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}', "--no-session-persistence", "--disable-slash-commands", "--settings", '{"disableAllHooks":true}'];
+  return provider === "codex" ? ["exec", "--ignore-user-config", "--sandbox", "read-only", "-c", 'approval_policy="never"', "--skip-git-repo-check", "--ephemeral", "--output-schema", path4.join(dir, "schema.json"), "--output-last-message", path4.join(dir, "answer.json"), "-"] : ["-p", "--output-format", "json", "--json-schema", JSON.stringify(ANSWER_SCHEMA), "--permission-mode", "dontAsk", "--tools", "", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}', "--no-session-persistence", "--disable-slash-commands", "--settings", '{"disableAllHooks":true}'];
 }
 async function invokeAgent(provider, executable, task, _cwd, timeoutMs = 3e5) {
   if (task.kind === "human") throw new Error("A human step cannot be delegated to a CLI.");
   if (task.input && task.inputText === null) throw new Error("Task input is too large for headless inline execution. Resume interactively.");
-  const dir = mkdtempSync(path3.join(os.tmpdir(), "scaffold-agent-"));
-  writeFileSync2(path3.join(dir, "schema.json"), JSON.stringify(ANSWER_SCHEMA), { mode: 384 });
+  const dir = mkdtempSync(path4.join(os2.tmpdir(), "scaffold-agent-"));
+  writeFileSync2(path4.join(dir, "schema.json"), JSON.stringify(ANSWER_SCHEMA), { mode: 384 });
   const prompt = [
     "Complete only the following automation task. Do not run commands, call tools, schedule work, or edit files. Scaffold performs all writes and runs approved commands.",
     "Return JSON matching the schema: ok, output (the task result), repair (null, or the full replacement source for the supplied broken script). For repair, preserve the existing command and purpose; Scaffold will rerun the script. If credentials, human decisions, external tools, or missing context are required, return ok:false. Never pretend an external action happened.",
@@ -11773,10 +11870,10 @@ async function invokeAgent(provider, executable, task, _cwd, timeoutMs = 3e5) {
     if (failure) throw new Error(failure);
     let value;
     if (provider === "codex") {
-      const file2 = path3.join(dir, "answer.json");
+      const file2 = path4.join(dir, "answer.json");
       if (code !== 0 || !existsSync3(file2)) throw agentFailure(provider, readFailure(provider, stdout, stderr, null), code !== 0 ? CLI_FAILED : "Agent returned no bounded structured answer.");
       if (statSync(file2).size > 1e6) throw new Error("Agent returned no bounded structured answer.");
-      value = JSON.parse(readFileSync3(file2, "utf8"));
+      value = JSON.parse(readFileSync4(file2, "utf8"));
     } else {
       let envelope = null;
       try {
@@ -11816,10 +11913,16 @@ function agentFailure(provider, reading, otherwise) {
 }
 async function runHeadless(planPath, agents, deps) {
   return withLock(planPath, async (loaded) => {
-    const previous = deps.history.recentRuns(automationId(loaded.planPath), 1)[0];
+    let previous = deps.history.recentRuns(automationId(loaded.planPath), 1)[0];
     if (previous?.status === "waiting") {
-      if (previous.state.tasks.some((task) => task.kind === "human")) throw new Error(`Run ${previous.id} is still waiting. Resume it interactively before starting another scheduled run.`);
-      await drive({ runId: previous.id, automationId: previous.automationId, status: "waiting", tasks: previous.state.tasks }, loaded, lineUp(agents, deps), deps);
+      const people = previous.state.tasks.filter((task) => task.kind === "human");
+      const walls = people.filter((task) => previous.state.steps[task.stepId]?.sawError);
+      if (walls.length < people.length) throw new Error(`Run ${previous.id} is still waiting. Resume it interactively before starting another scheduled run.`);
+      if (walls.length) {
+        await deps.runner.resume(previous.id, walls.map((task) => ({ id: task.stepId, ok: false, errorClass: previous.state.steps[task.stepId].sawError })));
+        previous = deps.history.run(previous.id) ?? void 0;
+      }
+      if (previous?.status === "waiting") await drive({ runId: previous.id, automationId: previous.automationId, status: "waiting", tasks: previous.state.tasks }, loaded, lineUp(agents, deps), deps);
     }
     return drive(await deps.runner.start(loaded.planPath, "assisted"), loaded, lineUp(agents, deps), deps);
   });
@@ -11844,15 +11947,15 @@ async function withLock(planPath, work) {
   if (process.env.SCAFFOLD_HEADLESS_ACTIVE) throw new Error("Nested headless runs are not allowed.");
   const loaded = loadPlanFile(planPath);
   if (!loaded.ok) return loaded;
-  const root = path3.join(loaded.planDir, ".scaffold");
+  const root = path4.join(loaded.planDir, ".scaffold");
   mkdirSync2(root, { recursive: true });
-  const lock = path3.join(root, "headless.lock");
+  const lock = path4.join(root, "headless.lock");
   try {
     mkdirSync2(lock);
   } catch {
     throw new Error("Another headless run owns headless.lock. If it crashed, confirm no runner or agent remains before removing that directory.");
   }
-  writeFileSync2(path3.join(lock, "pid"), String(process.pid));
+  writeFileSync2(path4.join(lock, "pid"), String(process.pid));
   try {
     return await work(loaded);
   } finally {
@@ -11873,7 +11976,7 @@ async function drive(first, loaded, agents, deps) {
     if (answer.repair !== null) {
       const script = task.script;
       const target = realpathSync2(script.path);
-      if (!target.startsWith(realpathSync2(loaded.planDir) + path3.sep) || lstatSync(script.path).isSymbolicLink() || readFileSync3(target, "utf8") !== script.content) throw new Error("Repair target changed or is outside the automation folder.");
+      if (!target.startsWith(realpathSync2(loaded.planDir) + path4.sep) || lstatSync(script.path).isSymbolicLink() || readFileSync4(target, "utf8") !== script.content) throw new Error("Repair target changed or is outside the automation folder.");
       writeFileSync2(target, answer.repair);
     }
     report = last = await deps.runner.resume(waiting.runId, [{ id: task.stepId, ok: answer.ok, output: answer.output, ...answer.repair !== null ? { fixed: true } : {} }], void 0, { [task.stepId]: credit });
@@ -11915,13 +12018,480 @@ async function ask(task, agents, planDir, deps, run) {
   throw new NoAgentAvailable(unavailable);
 }
 
+// src/runner/history.ts
+import { mkdirSync as mkdirSync3 } from "node:fs";
+import path5 from "node:path";
+
+// src/sqlite.ts
+import { DatabaseSync } from "node:sqlite";
+var pause = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+function openDatabase(filePath) {
+  const db = new DatabaseSync(filePath);
+  db.exec("PRAGMA busy_timeout=5000");
+  for (let attempt = 0; ; attempt++) {
+    try {
+      db.exec("PRAGMA journal_mode=WAL");
+      return db;
+    } catch (error40) {
+      if (attempt >= 100 || !/locked|busy/i.test(String(error40))) throw error40;
+      pause(20 + Math.random() * 30);
+    }
+  }
+}
+function setUp(db, work) {
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const result = work();
+    db.exec("COMMIT");
+    return result;
+  } catch (error40) {
+    db.exec("ROLLBACK");
+    throw error40;
+  }
+}
+
+// src/runner/history.ts
+var DEFAULT_RUN_SETTINGS = { repeat: 1, repeatGapMinutes: 0, stopAfterRuns: null, stopAt: null, pauseAfterFailures: null, countFrom: null, resumedAt: null };
+var MAX_REPEAT = 100;
+var MAX_REPEAT_GAP_MINUTES = 1440;
+function stopTime(iso) {
+  const at = new Date(iso);
+  const time3 = at.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }).replace(/\s?([AP]M)$/, (_, half) => ` ${half.toLowerCase()}`);
+  return `${at.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${time3}`;
+}
+var toRun = (row) => ({
+  id: row.id,
+  automationId: row.automation_id,
+  number: Number(row.number),
+  mode: row.mode,
+  status: row.status,
+  startedAt: row.started_at,
+  finishedAt: row.finished_at,
+  state: JSON.parse(row.state)
+});
+function alive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error40) {
+    return error40.code === "EPERM";
+  }
+}
+var RunHistory = class {
+  db;
+  constructor(filePath) {
+    mkdirSync3(path5.dirname(filePath), { recursive: true });
+    this.db = openDatabase(filePath);
+    setUp(this.db, () => {
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS automations (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          plan_path TEXT NOT NULL,
+          fingerprint TEXT NOT NULL,
+          request TEXT NOT NULL,
+          scheduler TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS runs (
+          id TEXT PRIMARY KEY,
+          automation_id TEXT NOT NULL,
+          number INTEGER NOT NULL,
+          mode TEXT NOT NULL,
+          status TEXT NOT NULL,
+          started_at TEXT NOT NULL,
+          finished_at TEXT,
+          state TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS runs_by_automation ON runs (automation_id, number DESC);
+        CREATE TABLE IF NOT EXISTS step_policies (
+          automation_id TEXT NOT NULL,
+          step_id TEXT NOT NULL,
+          policy TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          PRIMARY KEY (automation_id, step_id)
+        );
+        CREATE TABLE IF NOT EXISTS heal_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          automation_id TEXT NOT NULL,
+          run_id TEXT NOT NULL,
+          event TEXT NOT NULL,
+          at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS heals_by_automation ON heal_events (automation_id, at DESC);
+        -- Automations that came from the person's Scaffold account: where they
+        -- were put on this computer, and which saved version that copy is.
+        CREATE TABLE IF NOT EXISTS remote_automations (
+          remote_id TEXT PRIMARY KEY,
+          local_id TEXT NOT NULL,
+          plan_path TEXT NOT NULL,
+          version INTEGER NOT NULL
+        );
+        -- How often Claude has been told an account automation isn't scheduled
+        -- here yet, so it offers a few times and then stops asking.
+        CREATE TABLE IF NOT EXISTS schedule_receipts (remote_id TEXT PRIMARY KEY, receipt TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS scheduling_offers (
+          remote_id TEXT PRIMARY KEY,
+          version INTEGER NOT NULL,
+          times INTEGER NOT NULL,
+          last_at TEXT NOT NULL
+        );
+        -- Automations the person paused in the Scaffold app. Every run of one is
+        -- refused, whichever scheduler starts it, until they resume it there.
+        CREATE TABLE IF NOT EXISTS paused (automation_id TEXT PRIMARY KEY, at TEXT NOT NULL);
+        -- Automations the person deleted in the Scaffold app. A scheduled task can still start
+        -- one; the run is refused with that reason, until the plan is scheduled again.
+        CREATE TABLE IF NOT EXISTS deleted (automation_id TEXT PRIMARY KEY, name TEXT NOT NULL, at TEXT NOT NULL);
+        -- Each automation's run settings (RunSettings, as JSON), set in the Scaffold app.
+        CREATE TABLE IF NOT EXISTS run_settings (automation_id TEXT PRIMARY KEY, settings TEXT NOT NULL, updated_at TEXT NOT NULL);
+        -- The repeats under way for an automation: one set at a time, by the process running them.
+        CREATE TABLE IF NOT EXISTS repeats (automation_id TEXT PRIMARY KEY, pid INTEGER NOT NULL, left_count INTEGER NOT NULL, started_at TEXT NOT NULL);
+      `);
+      const pausedColumns = this.db.prepare("PRAGMA table_info(paused)").all();
+      if (!pausedColumns.some((column) => column.name === "reason")) this.db.exec("ALTER TABLE paused ADD COLUMN reason TEXT");
+    });
+  }
+  // ---- Automations -----------------------------------------------------------
+  saveAutomation(automation, now = /* @__PURE__ */ new Date()) {
+    this.db.prepare("DELETE FROM deleted WHERE automation_id = ?").run(automation.id);
+    this.db.prepare(
+      `INSERT INTO automations (id, name, plan_path, fingerprint, request, scheduler, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET name = excluded.name, plan_path = excluded.plan_path,
+           fingerprint = excluded.fingerprint, request = excluded.request, scheduler = excluded.scheduler,
+           updated_at = excluded.updated_at`
+    ).run(
+      automation.id,
+      automation.name,
+      automation.planPath,
+      automation.fingerprint,
+      automation.request,
+      automation.scheduler,
+      automation.createdAt,
+      now.toISOString()
+    );
+  }
+  automation(id) {
+    const row = this.db.prepare("SELECT * FROM automations WHERE id = ?").get(id);
+    if (!row) return null;
+    return {
+      id: row.id,
+      name: row.name,
+      planPath: row.plan_path,
+      fingerprint: row.fingerprint,
+      request: row.request,
+      scheduler: row.scheduler ?? null,
+      createdAt: row.created_at
+    };
+  }
+  listAutomations() {
+    const rows = this.db.prepare("SELECT id FROM automations ORDER BY updated_at DESC").all();
+    return rows.map((row) => this.automation(row.id)).filter((a) => a !== null);
+  }
+  /**
+   * Forgets an automation on this computer: its record, runs, step policies, repairs, pause and
+   * account link. Its folder and files stay. Remembers that it was deleted, so a run a
+   * scheduler starts later is refused with the reason.
+   */
+  deleteAutomation(id, now = /* @__PURE__ */ new Date()) {
+    const automation = this.automation(id);
+    if (!automation) return false;
+    const remoteId = this.remoteIdFor(id);
+    this.db.exec("BEGIN");
+    try {
+      for (const table of ["runs", "step_policies", "heal_events", "paused", "run_settings", "repeats"]) {
+        this.db.prepare(`DELETE FROM ${table} WHERE automation_id = ?`).run(id);
+      }
+      if (remoteId) {
+        for (const table of ["schedule_receipts", "scheduling_offers"]) this.db.prepare(`DELETE FROM ${table} WHERE remote_id = ?`).run(remoteId);
+      }
+      this.db.prepare("DELETE FROM remote_automations WHERE local_id = ?").run(id);
+      this.db.prepare("DELETE FROM automations WHERE id = ?").run(id);
+      this.db.prepare("INSERT INTO deleted (automation_id, name, at) VALUES (?, ?, ?) ON CONFLICT(automation_id) DO UPDATE SET name = excluded.name, at = excluded.at").run(id, automation.name, now.toISOString());
+      this.db.exec("COMMIT");
+      return true;
+    } catch (error40) {
+      this.db.exec("ROLLBACK");
+      throw error40;
+    }
+  }
+  /** The name of an automation deleted in the Scaffold app, if this one was. */
+  deletedName(id) {
+    const row = this.db.prepare("SELECT name FROM deleted WHERE automation_id = ?").get(id);
+    return row?.name ?? null;
+  }
+  isPaused(id) {
+    return Boolean(this.db.prepare("SELECT 1 FROM paused WHERE automation_id = ?").get(id));
+  }
+  pausedIds() {
+    return this.db.prepare("SELECT automation_id FROM paused").all().map((row) => row.automation_id);
+  }
+  /**
+   * Pauses or resumes. A pause by run settings carries its reason. Resuming starts the run
+   * count again (docs/specs/run-settings.md, rule 4).
+   */
+  setPaused(id, paused, now = /* @__PURE__ */ new Date(), reason = null) {
+    if (paused) {
+      this.db.prepare("INSERT INTO paused (automation_id, at, reason) VALUES (?, ?, ?) ON CONFLICT(automation_id) DO NOTHING").run(id, now.toISOString(), reason);
+      return;
+    }
+    this.db.prepare("DELETE FROM paused WHERE automation_id = ?").run(id);
+    const settings = this.storedRunSettings(id);
+    if (settings) this.writeRunSettings(id, { ...settings, countFrom: settings.stopAfterRuns === null ? null : now.toISOString(), resumedAt: now.toISOString() }, now);
+  }
+  /** Why run settings paused it, if they did; null for a pause by hand, or none. */
+  pauseReason(id) {
+    const row = this.db.prepare("SELECT reason FROM paused WHERE automation_id = ?").get(id);
+    return row?.reason ?? null;
+  }
+  // ---- Run settings ---------------------------------------------------------------
+  storedRunSettings(id) {
+    const row = this.db.prepare("SELECT settings FROM run_settings WHERE automation_id = ?").get(id);
+    if (!row) return null;
+    try {
+      return { ...DEFAULT_RUN_SETTINGS, ...JSON.parse(row.settings) };
+    } catch {
+      return null;
+    }
+  }
+  writeRunSettings(id, settings, now) {
+    this.db.prepare("INSERT INTO run_settings (automation_id, settings, updated_at) VALUES (?, ?, ?) ON CONFLICT(automation_id) DO UPDATE SET settings = excluded.settings, updated_at = excluded.updated_at").run(id, JSON.stringify(settings), now.toISOString());
+  }
+  runSettings(id) {
+    return this.storedRunSettings(id) ?? { ...DEFAULT_RUN_SETTINGS };
+  }
+  /** Saves run settings. Setting or changing the run limit starts the count from now. */
+  saveRunSettings(id, input, now = /* @__PURE__ */ new Date()) {
+    const before = this.runSettings(id);
+    const restart = input.stopAfterRuns !== null && (input.stopAfterRuns !== before.stopAfterRuns || !before.countFrom);
+    const settings = { ...input, countFrom: input.stopAfterRuns === null ? null : restart ? now.toISOString() : before.countFrom, resumedAt: before.resumedAt };
+    this.writeRunSettings(id, settings, now);
+    return settings;
+  }
+  /** Runs that count toward the run limit: those started since the count began. */
+  countedRuns(id) {
+    const from = this.runSettings(id).countFrom;
+    if (!from) return 0;
+    const row = this.db.prepare("SELECT COUNT(*) AS n FROM runs WHERE automation_id = ? AND started_at >= ?").get(id, from);
+    return Number(row.n);
+  }
+  /**
+   * Failed runs in a row, newest first, since it was last resumed; any other result ends the
+   * streak. A run under way is skipped.
+   */
+  failureStreak(id) {
+    const since = this.storedRunSettings(id)?.resumedAt ?? null;
+    let streak = 0;
+    for (const run of this.recentRuns(id, 20)) {
+      if (since && run.startedAt < since) break;
+      if (run.status === "waiting" && streak === 0) continue;
+      if (run.status !== "failed") break;
+      streak++;
+    }
+    return streak;
+  }
+  /**
+   * The run settings limit that stops this automation now, if one does: at a run's start (a
+   * stop time, the run count, failures) or after a run (the run count, failures). A limit
+   * reached pauses it with the reason; the reason is returned either way.
+   */
+  enforceRunLimits(id, now = /* @__PURE__ */ new Date(), when = "start") {
+    const settings = this.storedRunSettings(id);
+    if (!settings) return null;
+    let reason = null;
+    if (when === "start" && settings.stopAt && now.getTime() > Date.parse(settings.stopAt)) reason = `its stop time (${stopTime(settings.stopAt)}) passed`;
+    else if (settings.stopAfterRuns !== null && this.countedRuns(id) >= settings.stopAfterRuns) reason = `reached its ${settings.stopAfterRuns}-run limit`;
+    else if (settings.pauseAfterFailures !== null && this.failureStreak(id) >= settings.pauseAfterFailures) reason = `${settings.pauseAfterFailures} run${settings.pauseAfterFailures === 1 ? "" : "s"} in a row failed`;
+    if (reason && !this.isPaused(id)) this.setPaused(id, true, now, reason);
+    return reason;
+  }
+  // ---- Repeats ----------------------------------------------------------------------
+  /** Claims the repeats for an automation, unless a live process already has them. */
+  claimRepeats(id, pid, left, now = /* @__PURE__ */ new Date()) {
+    const held = this.db.prepare("SELECT pid FROM repeats WHERE automation_id = ?").get(id);
+    if (held && held.pid !== pid && alive(held.pid)) return false;
+    this.db.prepare("INSERT INTO repeats (automation_id, pid, left_count, started_at) VALUES (?, ?, ?, ?) ON CONFLICT(automation_id) DO UPDATE SET pid = excluded.pid, left_count = excluded.left_count, started_at = excluded.started_at").run(id, pid, left, now.toISOString());
+    return true;
+  }
+  /** Hands the claim to the process that will run the repeats. */
+  passRepeats(id, pid) {
+    this.db.prepare("UPDATE repeats SET pid = ? WHERE automation_id = ?").run(pid, id);
+  }
+  setRepeatsLeft(id, left) {
+    this.db.prepare("UPDATE repeats SET left_count = ? WHERE automation_id = ?").run(left, id);
+  }
+  releaseRepeats(id, pid) {
+    if (pid === void 0) this.db.prepare("DELETE FROM repeats WHERE automation_id = ?").run(id);
+    else this.db.prepare("DELETE FROM repeats WHERE automation_id = ? AND pid = ?").run(id, pid);
+  }
+  /** Repeats still to come for an automation, if a live process has them. */
+  repeatsLeft(id) {
+    const row = this.db.prepare("SELECT pid, left_count FROM repeats WHERE automation_id = ?").get(id);
+    return row && alive(row.pid) ? Number(row.left_count) : 0;
+  }
+  remoteAutomation(remoteId) {
+    const row = this.db.prepare("SELECT local_id, plan_path, version FROM remote_automations WHERE remote_id = ?").get(remoteId);
+    return row ? { localId: row.local_id, planPath: row.plan_path, version: Number(row.version) } : null;
+  }
+  /** The account automation a local one came from, if any. */
+  remoteIdFor(localId) {
+    const row = this.db.prepare("SELECT remote_id FROM remote_automations WHERE local_id = ?").get(localId);
+    return row?.remote_id ?? null;
+  }
+  /** How many times setting up this version of an account automation has been offered here. */
+  offersMade(remoteId, version2) {
+    const row = this.db.prepare("SELECT version, times FROM scheduling_offers WHERE remote_id = ?").get(remoteId);
+    return row && Number(row.version) === version2 ? Number(row.times) : 0;
+  }
+  /** One more offer of this version; a newer version starts the count again. */
+  recordOffer(remoteId, version2, now = /* @__PURE__ */ new Date()) {
+    this.db.prepare(
+      `INSERT INTO scheduling_offers (remote_id, version, times, last_at) VALUES (?, ?, 1, ?)
+         ON CONFLICT(remote_id) DO UPDATE SET
+           times = CASE WHEN scheduling_offers.version = excluded.version THEN scheduling_offers.times + 1 ELSE 1 END,
+           version = excluded.version,
+           last_at = excluded.last_at`
+    ).run(remoteId, version2, now.toISOString());
+  }
+  scheduleReceipt(remoteId) {
+    const row = this.db.prepare("SELECT receipt FROM schedule_receipts WHERE remote_id = ?").get(remoteId);
+    return row ? JSON.parse(row.receipt) : null;
+  }
+  recordSchedule(remoteId, receipt) {
+    this.db.prepare("INSERT INTO schedule_receipts (remote_id, receipt) VALUES (?, ?) ON CONFLICT(remote_id) DO UPDATE SET receipt = excluded.receipt").run(remoteId, JSON.stringify(receipt));
+  }
+  setRemoteAutomation(remoteId, localId, planPath, version2) {
+    this.db.prepare(
+      `INSERT INTO remote_automations (remote_id, local_id, plan_path, version) VALUES (?, ?, ?, ?)
+         ON CONFLICT(remote_id) DO UPDATE SET local_id = excluded.local_id, plan_path = excluded.plan_path, version = excluded.version`
+    ).run(remoteId, localId, planPath, version2);
+  }
+  // ---- Runs ------------------------------------------------------------------
+  nextRunNumber(automationId2) {
+    const row = this.db.prepare("SELECT MAX(number) AS n FROM runs WHERE automation_id = ?").get(automationId2);
+    return Number(row.n ?? 0) + 1;
+  }
+  saveRun(run) {
+    this.db.prepare(
+      `INSERT INTO runs (id, automation_id, number, mode, status, started_at, finished_at, state)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET mode = excluded.mode, status = excluded.status,
+           finished_at = excluded.finished_at, state = excluded.state`
+    ).run(run.id, run.automationId, run.number, run.mode, run.status, run.startedAt, run.finishedAt, JSON.stringify(run.state));
+  }
+  run(id) {
+    const row = this.db.prepare("SELECT * FROM runs WHERE id = ?").get(id);
+    return row ? toRun(row) : null;
+  }
+  recentRuns(automationId2, limit) {
+    const rows = this.db.prepare("SELECT * FROM runs WHERE automation_id = ? ORDER BY number DESC LIMIT ?").all(automationId2, limit);
+    return rows.map(toRun);
+  }
+  /** A run left waiting on an agent that never came back is closed out when the next one starts. */
+  abandonWaiting(automationId2, now = /* @__PURE__ */ new Date()) {
+    const result = this.db.prepare("UPDATE runs SET status = 'abandoned', finished_at = ? WHERE automation_id = ? AND status = 'waiting'").run(now.toISOString(), automationId2);
+    return Number(result.changes);
+  }
+  /** This step across earlier runs, newest first. */
+  stepHistory(automationId2, stepId, excludeRunId, limit = 10) {
+    return this.recentRuns(automationId2, limit + 1).filter((run) => run.id !== excludeRunId && run.state.statuses[stepId] !== void 0).slice(0, limit).map((run) => ({
+      runNumber: run.number,
+      at: run.startedAt,
+      status: run.state.statuses[stepId],
+      sawError: run.state.steps[stepId]?.sawError,
+      ranAs: run.state.steps[stepId]?.ranAs
+    }));
+  }
+  /** Whether this step's script has ever run clean — what separates a changed response from a bug. */
+  scriptSucceededBefore(automationId2, stepId, excludeRunId) {
+    return this.recentRuns(automationId2, 50).some(
+      (run) => run.id !== excludeRunId && run.state.statuses[stepId] === "done" && run.state.steps[stepId]?.ranAs === "script"
+    );
+  }
+  /** Every step's current treatment, keyed by step id. */
+  policies(automationId2) {
+    const rows = this.db.prepare("SELECT step_id, policy FROM step_policies WHERE automation_id = ?").all(automationId2);
+    return Object.fromEntries(rows.map((row) => [row.step_id, { ...DEFAULT_POLICY, ...JSON.parse(row.policy) }]));
+  }
+  // ---- Policies --------------------------------------------------------------
+  policy(automationId2, stepId) {
+    const row = this.db.prepare("SELECT policy FROM step_policies WHERE automation_id = ? AND step_id = ?").get(automationId2, stepId);
+    return row ? { ...DEFAULT_POLICY, ...JSON.parse(row.policy) } : { ...DEFAULT_POLICY };
+  }
+  setPolicy(automationId2, stepId, policy, now = /* @__PURE__ */ new Date()) {
+    this.db.prepare(
+      `INSERT INTO step_policies (automation_id, step_id, policy, updated_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT(automation_id, step_id) DO UPDATE SET policy = excluded.policy, updated_at = excluded.updated_at`
+    ).run(automationId2, stepId, JSON.stringify(policy), now.toISOString());
+  }
+  // ---- Healing ---------------------------------------------------------------
+  recordHeal(automationId2, runId, event) {
+    this.db.prepare("INSERT INTO heal_events (automation_id, run_id, event, at) VALUES (?, ?, ?, ?)").run(automationId2, runId, JSON.stringify(event), event.at);
+  }
+  /** Every change healing made, newest first. */
+  healEvents(automationId2, limit = 50) {
+    const rows = this.db.prepare("SELECT event FROM heal_events WHERE automation_id = ? ORDER BY at DESC, id DESC LIMIT ?").all(automationId2, limit);
+    return rows.map((row) => JSON.parse(row.event));
+  }
+  /**
+   * Earlier changes and how each has held up since: how many runs this step
+   * has had since the change, and how many of those failed again.
+   */
+  holding(automationId2, currentRunId, limit = 5) {
+    const rows = this.db.prepare("SELECT run_id, event FROM heal_events WHERE automation_id = ? AND run_id != ? ORDER BY at DESC LIMIT 50").all(automationId2, currentRunId);
+    const runs = this.recentRuns(automationId2, 200);
+    const seen = /* @__PURE__ */ new Set();
+    const holding = [];
+    for (const row of rows) {
+      const event = JSON.parse(row.event);
+      if (seen.has(event.stepId)) continue;
+      seen.add(event.stepId);
+      const after = runs.filter((run) => run.number > event.runNumber && run.state.statuses[event.stepId] !== void 0);
+      holding.push({
+        stepId: event.stepId,
+        label: event.label,
+        change: event.change,
+        since: event.at,
+        runsSince: after.length,
+        failuresSince: after.filter((run) => run.state.steps[event.stepId]?.errorClass !== void 0).length
+      });
+      if (holding.length >= limit) break;
+    }
+    return holding;
+  }
+};
+
+// src/runner/repeats.ts
+async function runRepeats(deps) {
+  const { history, automationId: id } = deps;
+  const sleep = deps.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const pid = deps.pid ?? process.pid;
+  let ran = 0;
+  try {
+    for (let k = 0; k < deps.left; k++) {
+      history.setRepeatsLeft(id, deps.left - k);
+      if (deps.gapMinutes > 0) await sleep(deps.gapMinutes * 6e4);
+      if (!history.automation(id)) return { ran, stopped: "it was deleted" };
+      if (history.isPaused(id)) return { ran, stopped: "it was paused" };
+      const report = await deps.runOnce();
+      if ("ok" in report) return { ran, stopped: report.problems[0]?.message ?? "a run couldn't start" };
+      ran++;
+      if (report.status === "waiting") return { ran, stopped: "a run is waiting on the agent" };
+    }
+    return { ran, stopped: null };
+  } finally {
+    history.releaseRepeats(id, pid);
+  }
+}
+
 // src/link.ts
 import { execFileSync, spawn as spawn2 } from "node:child_process";
-import { chmodSync, existsSync as existsSync4, lstatSync as lstatSync2, linkSync, mkdirSync as mkdirSync3, readFileSync as readFileSync4, renameSync as renameSync2, rmSync as rmSync2, writeFileSync as writeFileSync3 } from "node:fs";
+import { chmodSync, existsSync as existsSync4, lstatSync as lstatSync2, linkSync, mkdirSync as mkdirSync4, readFileSync as readFileSync5, renameSync as renameSync2, rmSync as rmSync2, writeFileSync as writeFileSync3 } from "node:fs";
 import { createHash as createHash2, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
-import os2 from "node:os";
-import path4 from "node:path";
+import os3 from "node:os";
+import path6 from "node:path";
 
 // src/hosted-url.ts
 var HOSTED_API_URL = "https://api.scaffold-ai.tech";
@@ -11931,7 +12501,7 @@ async function storeComputerKey(key, options) {
   if (!/^sk_scaffold_[A-Za-z0-9_-]{20,100}$/.test(key)) throw new Error("That is not a Scaffold computer key.");
   const url2 = new URL(options.apiUrl);
   if (url2.protocol !== "https:" && !(url2.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url2.hostname))) throw new Error("Account linking requires HTTPS (or loopback for tests).");
-  const file2 = path4.join(options.dataDir, "key");
+  const file2 = path6.join(options.dataDir, "key");
   if (existsSync4(file2) && !options.replace) throw new Error("A key already exists. Use link --replace to replace it deliberately.");
   if (existsSync4(options.dataDir) && lstatSync2(options.dataDir).isSymbolicLink()) throw new Error("The key directory must not be a symbolic link.");
   const res = await fetch(`${options.apiUrl.replace(/\/+$/, "")}/v1/account`, {
@@ -11943,8 +12513,8 @@ async function storeComputerKey(key, options) {
   });
   const account = await res.json().catch(() => null);
   if (!res.ok || account?.known !== true) throw new Error("Scaffold did not accept this key. No key was saved.");
-  mkdirSync3(options.dataDir, { recursive: true, mode: 448 });
-  const temporary = path4.join(options.dataDir, `.key-${randomBytes(8).toString("hex")}`);
+  mkdirSync4(options.dataDir, { recursive: true, mode: 448 });
+  const temporary = path6.join(options.dataDir, `.key-${randomBytes(8).toString("hex")}`);
   try {
     writeFileSync3(temporary, `${key}
 `, { flag: "wx", mode: 384 });
@@ -11993,7 +12563,7 @@ async function hiddenKey() {
   });
 }
 var b64url = (bytes2) => bytes2.toString("base64url");
-var dataDirectory = () => process.env.SCAFFOLD_CONNECTOR_DB ? path4.dirname(process.env.SCAFFOLD_CONNECTOR_DB) : path4.join(process.env.HOME || ".", ".scaffold-connector");
+var dataDirectory = () => process.env.SCAFFOLD_CONNECTOR_DB ? path6.dirname(process.env.SCAFFOLD_CONNECTOR_DB) : path6.join(process.env.HOME || ".", ".scaffold-connector");
 function computerName() {
   if (process.platform === "darwin") {
     try {
@@ -12002,7 +12572,7 @@ function computerName() {
     } catch {
     }
   }
-  return (os2.hostname().replace(/\.local$/, "") || "This computer").slice(0, 80);
+  return (os3.hostname().replace(/\.local$/, "") || "This computer").slice(0, 80);
 }
 function openInBrowser(url2) {
   const [command, args] = process.platform === "darwin" ? ["open", [url2]] : process.platform === "win32" ? ["cmd", ["/c", "start", "", url2]] : ["xdg-open", [url2]];
@@ -12022,7 +12592,7 @@ var callbackPage = (title, body) => `<!doctype html><meta charset="utf-8"><title
 async function linkWithBrowser(options) {
   const api = checkedApi(options.apiUrl);
   const say = options.say ?? (() => void 0);
-  if (existsSync4(path4.join(options.dataDir, "key")) && !options.replace) throw new Error("This computer is already linked. Run link --replace to link it again.");
+  if (existsSync4(path6.join(options.dataDir, "key")) && !options.replace) throw new Error("This computer is already linked. Run link --replace to link it again.");
   const name = (options.name ?? computerName()).trim().slice(0, 80) || "This computer";
   const unreachable = () => {
     throw new Error("Could not reach Scaffold. Nothing was linked.");
@@ -12124,9 +12694,9 @@ ${authorize}` : `Your browser is open. Sign in to Scaffold and allow ${name}.`);
   }
 }
 async function unlinkComputer(options) {
-  const file2 = path4.join(options.dataDir, "key");
+  const file2 = path6.join(options.dataDir, "key");
   if (!existsSync4(file2)) return "not-linked";
-  const key = readFileSync4(file2, "utf8").trim();
+  const key = readFileSync5(file2, "utf8").trim();
   const api = checkedApi(options.apiUrl);
   const res = await fetch(`${api}/v1/computer`, { method: "DELETE", headers: { authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(1e4) }).catch(() => {
     throw new Error("Could not reach Scaffold, so this computer is still linked. Try again when you're online.");
@@ -12172,13 +12742,13 @@ async function unlinkFromTerminal() {
 }
 
 // src/context.ts
-import { existsSync as existsSync8, readFileSync as readFileSync8 } from "node:fs";
-import path12 from "node:path";
+import { spawn as spawn4 } from "node:child_process";
+import { closeSync as closeSync2, existsSync as existsSync8, mkdirSync as mkdirSync11, openSync as openSync2, readFileSync as readFileSync9 } from "node:fs";
+import path13 from "node:path";
 
 // src/knowledge/remote.ts
-import { mkdirSync as mkdirSync4 } from "node:fs";
-import path5 from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { mkdirSync as mkdirSync5 } from "node:fs";
+import path7 from "node:path";
 var BATCH = 100;
 var OUTBOX_CAP = 5e3;
 var RETRY_AFTER_MS = 6e4;
@@ -12191,16 +12761,16 @@ var RemoteSession = class {
   constructor(options) {
     this.options = options;
     this.now = options.now ?? Date.now;
-    mkdirSync4(path5.dirname(options.outboxPath), { recursive: true });
-    this.outbox = new DatabaseSync(options.outboxPath);
-    this.outbox.exec("PRAGMA journal_mode=WAL");
-    this.outbox.exec("PRAGMA busy_timeout=5000");
-    this.outbox.exec("CREATE TABLE IF NOT EXISTS outbox (id INTEGER PRIMARY KEY AUTOINCREMENT, body TEXT NOT NULL, created_at TEXT NOT NULL)");
-    const columns = this.outbox.prepare("PRAGMA table_info(outbox)").all();
-    if (!columns.some((column) => column.name === "route")) {
-      this.outbox.exec("ALTER TABLE outbox ADD COLUMN route TEXT");
-      this.outbox.exec("ALTER TABLE outbox ADD COLUMN method TEXT");
-    }
+    mkdirSync5(path7.dirname(options.outboxPath), { recursive: true });
+    this.outbox = openDatabase(options.outboxPath);
+    setUp(this.outbox, () => {
+      this.outbox.exec("CREATE TABLE IF NOT EXISTS outbox (id INTEGER PRIMARY KEY AUTOINCREMENT, body TEXT NOT NULL, created_at TEXT NOT NULL)");
+      const columns = this.outbox.prepare("PRAGMA table_info(outbox)").all();
+      if (!columns.some((column) => column.name === "route")) {
+        this.outbox.exec("ALTER TABLE outbox ADD COLUMN route TEXT");
+        this.outbox.exec("ALTER TABLE outbox ADD COLUMN method TEXT");
+      }
+    });
   }
   outbox;
   now;
@@ -12758,9 +13328,8 @@ var LocalSession = class {
 
 // src/knowledge/store.ts
 import { createHash as createHash3, randomBytes as randomBytes2 } from "node:crypto";
-import { mkdirSync as mkdirSync5 } from "node:fs";
-import path6 from "node:path";
-import { DatabaseSync as DatabaseSync2 } from "node:sqlite";
+import { mkdirSync as mkdirSync6 } from "node:fs";
+import path8 from "node:path";
 var CORROBORATION_THRESHOLD = 2;
 var ANONYMOUS = { accountId: "anonymous", tier: "free" };
 var KEY_HASH = "sha256:";
@@ -12769,13 +13338,13 @@ var KnowledgeStore = class {
   /** `demo: false` on the hosted service, which must never hold the demo Pro key. */
   constructor(filePath, options = {}) {
     this.options = options;
-    mkdirSync5(path6.dirname(filePath), { recursive: true });
-    this.db = new DatabaseSync2(filePath);
-    this.db.exec("PRAGMA journal_mode=WAL");
-    this.db.exec("PRAGMA busy_timeout=5000");
-    this.migrate();
-    this.seed();
-    this.salt = this.contributorSalt();
+    mkdirSync6(path8.dirname(filePath), { recursive: true });
+    this.db = openDatabase(filePath);
+    this.salt = setUp(this.db, () => {
+      this.migrate();
+      this.seed();
+      return this.contributorSalt();
+    });
   }
   db;
   salt;
@@ -13116,13 +13685,13 @@ var KnowledgeStore = class {
 };
 
 // src/runner/account-sync.ts
-import { existsSync as existsSync6, mkdirSync as mkdirSync7, readFileSync as readFileSync5, realpathSync as realpathSync4, statSync as statSync2, writeFileSync as writeFileSync5 } from "node:fs";
-import path8 from "node:path";
+import { existsSync as existsSync6, mkdirSync as mkdirSync8, readFileSync as readFileSync6, realpathSync as realpathSync4, statSync as statSync2, writeFileSync as writeFileSync5 } from "node:fs";
+import path10 from "node:path";
 
 // src/runner/workspace.ts
-import { existsSync as existsSync5, lstatSync as lstatSync3, mkdirSync as mkdirSync6, realpathSync as realpathSync3, writeFileSync as writeFileSync4 } from "node:fs";
-import os3 from "node:os";
-import path7 from "node:path";
+import { existsSync as existsSync5, lstatSync as lstatSync3, mkdirSync as mkdirSync7, realpathSync as realpathSync3, writeFileSync as writeFileSync4 } from "node:fs";
+import os4 from "node:os";
+import path9 from "node:path";
 
 // src/present/summary.ts
 var MARK = "Using Scaffold";
@@ -13338,10 +13907,10 @@ function listSummary(list3) {
 }
 
 // src/runner/workspace.ts
-var scaffoldHome = () => process.env.SCAFFOLD_HOME || path7.join(os3.homedir(), "Scaffold");
+var scaffoldHome = () => process.env.SCAFFOLD_HOME || path9.join(os4.homedir(), "Scaffold");
 function badAutomationPath(raw) {
   const shown = raw.replace(/\\/g, "/");
-  if (path7.isAbsolute(shown) || shown.split("/").some((part) => part === ".." || part === "")) return `"${raw}" must be a plain relative path inside the automation's folder`;
+  if (path9.isAbsolute(shown) || shown.split("/").some((part) => part === ".." || part === "")) return `"${raw}" must be a plain relative path inside the automation's folder`;
   if (shown.split("/").some((part) => part.startsWith(".") && part !== ".")) return `"${raw}" is hidden; Scaffold keeps its own state under .scaffold`;
   return null;
 }
@@ -13352,29 +13921,29 @@ function writeAutomationFiles(raw) {
   }
   const { automation, files } = parsed.data;
   const home = scaffoldHome();
-  mkdirSync6(home, { recursive: true });
-  const folder = path7.join(realpathSync3(home), automation);
-  mkdirSync6(folder, { recursive: true });
+  mkdirSync7(home, { recursive: true });
+  const folder = path9.join(realpathSync3(home), automation);
+  mkdirSync7(folder, { recursive: true });
   if (lstatSync3(folder).isSymbolicLink()) return refuse("files", `${folder} is a link; Scaffold only writes into real folders`);
   const targets = [];
   for (const [index, file2] of files.entries()) {
     const shown = file2.path.replace(/\\/g, "/");
     const bad = badAutomationPath(file2.path);
     if (bad) return refuse(`files.${index}.path`, bad);
-    const full = path7.join(folder, ...shown.split("/"));
-    let parent = path7.dirname(full);
+    const full = path9.join(folder, ...shown.split("/"));
+    let parent = path9.dirname(full);
     while (parent.startsWith(folder) && parent !== folder) {
       if (existsSync5(parent) && lstatSync3(parent).isSymbolicLink()) return refuse(`files.${index}.path`, `"${file2.path}" goes through a link`);
-      parent = path7.dirname(parent);
+      parent = path9.dirname(parent);
     }
     if (existsSync5(full) && lstatSync3(full).isSymbolicLink()) return refuse(`files.${index}.path`, `"${file2.path}" is a link`);
     targets.push({ full, content: file2.content, shown });
   }
   for (const target of targets) {
-    mkdirSync6(path7.dirname(target.full), { recursive: true });
+    mkdirSync7(path9.dirname(target.full), { recursive: true });
     writeFileSync4(target.full, target.content);
   }
-  const planPath = path7.join(folder, "scaffold.plan.json");
+  const planPath = path9.join(folder, "scaffold.plan.json");
   return {
     ok: true,
     scaffold: MARK,
@@ -13409,20 +13978,20 @@ async function prepareAccountAutomation(remoteId, deps) {
   let planPath = mapped?.planPath;
   if (!planPath) {
     const home = scaffoldHome();
-    let folder2 = path8.join(home, slug(name));
-    if (existsSync6(path8.join(folder2, "scaffold.plan.json"))) folder2 = `${folder2}-${remoteId.slice(-6).toLowerCase()}`;
-    planPath = path8.join(folder2, "scaffold.plan.json");
+    let folder2 = path10.join(home, slug(name));
+    if (existsSync6(path10.join(folder2, "scaffold.plan.json"))) folder2 = `${folder2}-${remoteId.slice(-6).toLowerCase()}`;
+    planPath = path10.join(folder2, "scaffold.plan.json");
   }
-  const folder = path8.dirname(planPath);
+  const folder = path10.dirname(planPath);
   if (!mapped || mapped.version < version2 || !existsSync6(planPath)) {
     for (const file2 of files) {
       const bad = badAutomationPath(file2.path);
       if (bad) return problem(`The saved automation has a file Scaffold won't write: ${bad}`);
     }
-    mkdirSync7(folder, { recursive: true });
+    mkdirSync8(folder, { recursive: true });
     for (const file2 of files) {
-      const target = path8.join(folder, ...file2.path.split("/"));
-      mkdirSync7(path8.dirname(target), { recursive: true });
+      const target = path10.join(folder, ...file2.path.split("/"));
+      mkdirSync8(path10.dirname(target), { recursive: true });
       writeFileSync5(target, file2.content);
     }
     writeFileSync5(planPath, `${JSON.stringify(plan2.plan, null, 2)}
@@ -13474,274 +14043,16 @@ function accountSyncHook(remote, history) {
     const remoteId = history.remoteIdFor(report.automation.id);
     if (!remoteId) return;
     const repaired = new Set(report.healing.applied.filter((event) => event.remedy === "repaired").map((event) => event.stepId));
-    const files = scriptsNamed(where.plan).filter(({ stepId }) => repaired.has(stepId)).map(({ file: file2 }) => path8.resolve(where.planDir, file2)).filter((full) => full.startsWith(`${where.planDir}${path8.sep}`) && existsSync6(full) && statSync2(full).size <= 262144).map((full) => ({ path: path8.relative(where.planDir, full).split(path8.sep).join("/"), content: readFileSync5(full, "utf8") }));
+    const files = scriptsNamed(where.plan).filter(({ stepId }) => repaired.has(stepId)).map(({ file: file2 }) => path10.resolve(where.planDir, file2)).filter((full) => full.startsWith(`${where.planDir}${path10.sep}`) && existsSync6(full) && statSync2(full).size <= 262144).map((full) => ({ path: path10.relative(where.planDir, full).split(path10.sep).join("/"), content: readFileSync6(full, "utf8") }));
     if (files.length) await remote.pushFiles(remoteId, files);
     await remote.pushRun(remoteId, toSyncedRun(report));
   };
 }
 
-// src/runner/history.ts
-import { mkdirSync as mkdirSync8 } from "node:fs";
-import path9 from "node:path";
-import { DatabaseSync as DatabaseSync3 } from "node:sqlite";
-var toRun = (row) => ({
-  id: row.id,
-  automationId: row.automation_id,
-  number: Number(row.number),
-  mode: row.mode,
-  status: row.status,
-  startedAt: row.started_at,
-  finishedAt: row.finished_at,
-  state: JSON.parse(row.state)
-});
-var RunHistory = class {
-  db;
-  constructor(filePath) {
-    mkdirSync8(path9.dirname(filePath), { recursive: true });
-    this.db = new DatabaseSync3(filePath);
-    this.db.exec("PRAGMA journal_mode=WAL");
-    this.db.exec("PRAGMA busy_timeout=5000");
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS automations (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        plan_path TEXT NOT NULL,
-        fingerprint TEXT NOT NULL,
-        request TEXT NOT NULL,
-        scheduler TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS runs (
-        id TEXT PRIMARY KEY,
-        automation_id TEXT NOT NULL,
-        number INTEGER NOT NULL,
-        mode TEXT NOT NULL,
-        status TEXT NOT NULL,
-        started_at TEXT NOT NULL,
-        finished_at TEXT,
-        state TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS runs_by_automation ON runs (automation_id, number DESC);
-      CREATE TABLE IF NOT EXISTS step_policies (
-        automation_id TEXT NOT NULL,
-        step_id TEXT NOT NULL,
-        policy TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        PRIMARY KEY (automation_id, step_id)
-      );
-      CREATE TABLE IF NOT EXISTS heal_events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        automation_id TEXT NOT NULL,
-        run_id TEXT NOT NULL,
-        event TEXT NOT NULL,
-        at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS heals_by_automation ON heal_events (automation_id, at DESC);
-      -- Automations that came from the person's Scaffold account: where they
-      -- were put on this computer, and which saved version that copy is.
-      CREATE TABLE IF NOT EXISTS remote_automations (
-        remote_id TEXT PRIMARY KEY,
-        local_id TEXT NOT NULL,
-        plan_path TEXT NOT NULL,
-        version INTEGER NOT NULL
-      );
-      -- How often Claude has been told an account automation isn't scheduled
-      -- here yet, so it offers a few times and then stops asking.
-      CREATE TABLE IF NOT EXISTS schedule_receipts (remote_id TEXT PRIMARY KEY, receipt TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS scheduling_offers (
-        remote_id TEXT PRIMARY KEY,
-        version INTEGER NOT NULL,
-        times INTEGER NOT NULL,
-        last_at TEXT NOT NULL
-      );
-      -- Automations the person paused in the Scaffold app. Every run of one is
-      -- refused, whichever scheduler starts it, until they resume it there.
-      CREATE TABLE IF NOT EXISTS paused (automation_id TEXT PRIMARY KEY, at TEXT NOT NULL);
-    `);
-  }
-  // ---- Automations -----------------------------------------------------------
-  saveAutomation(automation, now = /* @__PURE__ */ new Date()) {
-    this.db.prepare(
-      `INSERT INTO automations (id, name, plan_path, fingerprint, request, scheduler, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET name = excluded.name, plan_path = excluded.plan_path,
-           fingerprint = excluded.fingerprint, request = excluded.request, scheduler = excluded.scheduler,
-           updated_at = excluded.updated_at`
-    ).run(
-      automation.id,
-      automation.name,
-      automation.planPath,
-      automation.fingerprint,
-      automation.request,
-      automation.scheduler,
-      automation.createdAt,
-      now.toISOString()
-    );
-  }
-  automation(id) {
-    const row = this.db.prepare("SELECT * FROM automations WHERE id = ?").get(id);
-    if (!row) return null;
-    return {
-      id: row.id,
-      name: row.name,
-      planPath: row.plan_path,
-      fingerprint: row.fingerprint,
-      request: row.request,
-      scheduler: row.scheduler ?? null,
-      createdAt: row.created_at
-    };
-  }
-  listAutomations() {
-    const rows = this.db.prepare("SELECT id FROM automations ORDER BY updated_at DESC").all();
-    return rows.map((row) => this.automation(row.id)).filter((a) => a !== null);
-  }
-  isPaused(id) {
-    return Boolean(this.db.prepare("SELECT 1 FROM paused WHERE automation_id = ?").get(id));
-  }
-  pausedIds() {
-    return this.db.prepare("SELECT automation_id FROM paused").all().map((row) => row.automation_id);
-  }
-  setPaused(id, paused, now = /* @__PURE__ */ new Date()) {
-    if (paused) this.db.prepare("INSERT INTO paused (automation_id, at) VALUES (?, ?) ON CONFLICT(automation_id) DO NOTHING").run(id, now.toISOString());
-    else this.db.prepare("DELETE FROM paused WHERE automation_id = ?").run(id);
-  }
-  remoteAutomation(remoteId) {
-    const row = this.db.prepare("SELECT local_id, plan_path, version FROM remote_automations WHERE remote_id = ?").get(remoteId);
-    return row ? { localId: row.local_id, planPath: row.plan_path, version: Number(row.version) } : null;
-  }
-  /** The account automation a local one came from, if any. */
-  remoteIdFor(localId) {
-    const row = this.db.prepare("SELECT remote_id FROM remote_automations WHERE local_id = ?").get(localId);
-    return row?.remote_id ?? null;
-  }
-  /** How many times setting up this version of an account automation has been offered here. */
-  offersMade(remoteId, version2) {
-    const row = this.db.prepare("SELECT version, times FROM scheduling_offers WHERE remote_id = ?").get(remoteId);
-    return row && Number(row.version) === version2 ? Number(row.times) : 0;
-  }
-  /** One more offer of this version; a newer version starts the count again. */
-  recordOffer(remoteId, version2, now = /* @__PURE__ */ new Date()) {
-    this.db.prepare(
-      `INSERT INTO scheduling_offers (remote_id, version, times, last_at) VALUES (?, ?, 1, ?)
-         ON CONFLICT(remote_id) DO UPDATE SET
-           times = CASE WHEN scheduling_offers.version = excluded.version THEN scheduling_offers.times + 1 ELSE 1 END,
-           version = excluded.version,
-           last_at = excluded.last_at`
-    ).run(remoteId, version2, now.toISOString());
-  }
-  scheduleReceipt(remoteId) {
-    const row = this.db.prepare("SELECT receipt FROM schedule_receipts WHERE remote_id = ?").get(remoteId);
-    return row ? JSON.parse(row.receipt) : null;
-  }
-  recordSchedule(remoteId, receipt) {
-    this.db.prepare("INSERT INTO schedule_receipts (remote_id, receipt) VALUES (?, ?) ON CONFLICT(remote_id) DO UPDATE SET receipt = excluded.receipt").run(remoteId, JSON.stringify(receipt));
-  }
-  setRemoteAutomation(remoteId, localId, planPath, version2) {
-    this.db.prepare(
-      `INSERT INTO remote_automations (remote_id, local_id, plan_path, version) VALUES (?, ?, ?, ?)
-         ON CONFLICT(remote_id) DO UPDATE SET local_id = excluded.local_id, plan_path = excluded.plan_path, version = excluded.version`
-    ).run(remoteId, localId, planPath, version2);
-  }
-  // ---- Runs ------------------------------------------------------------------
-  nextRunNumber(automationId2) {
-    const row = this.db.prepare("SELECT MAX(number) AS n FROM runs WHERE automation_id = ?").get(automationId2);
-    return Number(row.n ?? 0) + 1;
-  }
-  saveRun(run) {
-    this.db.prepare(
-      `INSERT INTO runs (id, automation_id, number, mode, status, started_at, finished_at, state)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET mode = excluded.mode, status = excluded.status,
-           finished_at = excluded.finished_at, state = excluded.state`
-    ).run(run.id, run.automationId, run.number, run.mode, run.status, run.startedAt, run.finishedAt, JSON.stringify(run.state));
-  }
-  run(id) {
-    const row = this.db.prepare("SELECT * FROM runs WHERE id = ?").get(id);
-    return row ? toRun(row) : null;
-  }
-  recentRuns(automationId2, limit) {
-    const rows = this.db.prepare("SELECT * FROM runs WHERE automation_id = ? ORDER BY number DESC LIMIT ?").all(automationId2, limit);
-    return rows.map(toRun);
-  }
-  /** A run left waiting on an agent that never came back is closed out when the next one starts. */
-  abandonWaiting(automationId2, now = /* @__PURE__ */ new Date()) {
-    const result = this.db.prepare("UPDATE runs SET status = 'abandoned', finished_at = ? WHERE automation_id = ? AND status = 'waiting'").run(now.toISOString(), automationId2);
-    return Number(result.changes);
-  }
-  /** This step across earlier runs, newest first. */
-  stepHistory(automationId2, stepId, excludeRunId, limit = 10) {
-    return this.recentRuns(automationId2, limit + 1).filter((run) => run.id !== excludeRunId && run.state.statuses[stepId] !== void 0).slice(0, limit).map((run) => ({
-      runNumber: run.number,
-      at: run.startedAt,
-      status: run.state.statuses[stepId],
-      sawError: run.state.steps[stepId]?.sawError,
-      ranAs: run.state.steps[stepId]?.ranAs
-    }));
-  }
-  /** Whether this step's script has ever run clean — what separates a changed response from a bug. */
-  scriptSucceededBefore(automationId2, stepId, excludeRunId) {
-    return this.recentRuns(automationId2, 50).some(
-      (run) => run.id !== excludeRunId && run.state.statuses[stepId] === "done" && run.state.steps[stepId]?.ranAs === "script"
-    );
-  }
-  /** Every step's current treatment, keyed by step id. */
-  policies(automationId2) {
-    const rows = this.db.prepare("SELECT step_id, policy FROM step_policies WHERE automation_id = ?").all(automationId2);
-    return Object.fromEntries(rows.map((row) => [row.step_id, { ...DEFAULT_POLICY, ...JSON.parse(row.policy) }]));
-  }
-  // ---- Policies --------------------------------------------------------------
-  policy(automationId2, stepId) {
-    const row = this.db.prepare("SELECT policy FROM step_policies WHERE automation_id = ? AND step_id = ?").get(automationId2, stepId);
-    return row ? { ...DEFAULT_POLICY, ...JSON.parse(row.policy) } : { ...DEFAULT_POLICY };
-  }
-  setPolicy(automationId2, stepId, policy, now = /* @__PURE__ */ new Date()) {
-    this.db.prepare(
-      `INSERT INTO step_policies (automation_id, step_id, policy, updated_at) VALUES (?, ?, ?, ?)
-         ON CONFLICT(automation_id, step_id) DO UPDATE SET policy = excluded.policy, updated_at = excluded.updated_at`
-    ).run(automationId2, stepId, JSON.stringify(policy), now.toISOString());
-  }
-  // ---- Healing ---------------------------------------------------------------
-  recordHeal(automationId2, runId, event) {
-    this.db.prepare("INSERT INTO heal_events (automation_id, run_id, event, at) VALUES (?, ?, ?, ?)").run(automationId2, runId, JSON.stringify(event), event.at);
-  }
-  /** Every change healing made, newest first. */
-  healEvents(automationId2, limit = 50) {
-    const rows = this.db.prepare("SELECT event FROM heal_events WHERE automation_id = ? ORDER BY at DESC, id DESC LIMIT ?").all(automationId2, limit);
-    return rows.map((row) => JSON.parse(row.event));
-  }
-  /**
-   * Earlier changes and how each has held up since: how many runs this step
-   * has had since the change, and how many of those failed again.
-   */
-  holding(automationId2, currentRunId, limit = 5) {
-    const rows = this.db.prepare("SELECT run_id, event FROM heal_events WHERE automation_id = ? AND run_id != ? ORDER BY at DESC LIMIT 50").all(automationId2, currentRunId);
-    const runs = this.recentRuns(automationId2, 200);
-    const seen = /* @__PURE__ */ new Set();
-    const holding = [];
-    for (const row of rows) {
-      const event = JSON.parse(row.event);
-      if (seen.has(event.stepId)) continue;
-      seen.add(event.stepId);
-      const after = runs.filter((run) => run.number > event.runNumber && run.state.statuses[event.stepId] !== void 0);
-      holding.push({
-        stepId: event.stepId,
-        label: event.label,
-        change: event.change,
-        since: event.at,
-        runsSince: after.length,
-        failuresSince: after.filter((run) => run.state.steps[event.stepId]?.errorClass !== void 0).length
-      });
-      if (holding.length >= limit) break;
-    }
-    return holding;
-  }
-};
-
 // src/runner/runner.ts
 import { randomBytes as randomBytes3 } from "node:crypto";
-import { existsSync as existsSync7, mkdirSync as mkdirSync9, readFileSync as readFileSync6, readdirSync, renameSync as renameSync3, rmSync as rmSync3, statSync as statSync3, writeFileSync as writeFileSync6 } from "node:fs";
-import path10 from "node:path";
+import { existsSync as existsSync7, mkdirSync as mkdirSync9, readFileSync as readFileSync7, readdirSync, renameSync as renameSync3, rmSync as rmSync3, statSync as statSync3, writeFileSync as writeFileSync6 } from "node:fs";
+import path11 from "node:path";
 
 // src/runner/errors.ts
 var MARKER = /scaffold:error=([a-z0-9_]+)/g;
@@ -14008,6 +14319,10 @@ var Runner = class {
     if (!loaded.ok) return loaded;
     const { plan: plan2, planDir } = loaded;
     const automation = this.deps.history.automation(automationId(loaded.planPath));
+    const deleted = automation ? null : this.deps.history.deletedName(automationId(loaded.planPath));
+    if (deleted) {
+      return problem2(`the person deleted "${deleted}" in the Scaffold app, so it doesn't run any more \u2014 tell them, and offer to remove the scheduled task that started it; don't schedule it again unless they ask`);
+    }
     if (!automation) {
       return problem2("this plan isn't a Scaffold automation yet \u2014 call schedule_automation with it first, so the person sees the commands it will run");
     }
@@ -14015,14 +14330,21 @@ var Runner = class {
       return problem2("this plan's steps or commands changed since the automation was created \u2014 call schedule_automation again so the person sees them");
     }
     if (this.deps.history.isPaused(automation.id)) {
-      return problem2("this automation is paused in the Scaffold app \u2014 the person can resume it there");
+      const reason = this.deps.history.pauseReason(automation.id);
+      return problem2(
+        reason ? `this automation is paused by its run settings: it ${reason} \u2014 the person can change its run settings or resume it in the Scaffold app; don't run or schedule it again unless they ask` : "this automation is paused in the Scaffold app \u2014 the person can resume it there"
+      );
+    }
+    const stopped = this.deps.history.enforceRunLimits(automation.id, this.now(), "start");
+    if (stopped) {
+      return problem2(`this automation's run settings paused it: it ${stopped} \u2014 the person can change its run settings or resume it in the Scaffold app; don't run or schedule it again unless they ask`);
     }
     this.deps.history.abandonWaiting(automation.id, this.now());
     const number4 = this.deps.history.nextRunNumber(automation.id);
     const id = `run-${number4}-${randomBytes3(3).toString("hex")}`;
-    const runDir = path10.join(planDir, ".scaffold", "runs", id);
+    const runDir = path11.join(planDir, ".scaffold", "runs", id);
     mkdirSync9(runDir, { recursive: true });
-    const ignore = path10.join(planDir, ".scaffold", ".gitignore");
+    const ignore = path11.join(planDir, ".scaffold", ".gitignore");
     if (!existsSync7(ignore)) writeFileSync6(ignore, "*\n");
     const statuses = new Map(plan2.nodes.map((node) => [node.id, node.type === "trigger" ? "done" : "pending"]));
     const state = { runDir, statuses: {}, branches: {}, outputs: {}, steps: {}, tasks: [], healed: [] };
@@ -14096,7 +14418,23 @@ var Runner = class {
       await this.deps.afterRun?.(report, { plan: live.plan, planDir: live.planDir });
     } catch {
     }
+    if (report.status !== "waiting") this.afterSettled(live);
     return report;
+  }
+  /**
+   * Run settings, once a run has finished: the run that reaches a limit pauses the automation
+   * straight away, and a trigger's first run starts its repeats.
+   */
+  afterSettled(live) {
+    try {
+      const id = live.automation.id;
+      if (this.deps.history.enforceRunLimits(id, this.now(), "after")) return;
+      const settings = this.deps.history.runSettings(id);
+      if (settings.repeat > 1 && !this.deps.repeating) {
+        this.deps.startRepeats?.({ automationId: id, planPath: live.automation.planPath, left: settings.repeat - 1, gapMinutes: settings.repeatGapMinutes });
+      }
+    } catch {
+    }
   }
   // ---- Driving the plan ------------------------------------------------------
   async advance(live) {
@@ -14144,14 +14482,14 @@ var Runner = class {
       instructions,
       input: inputs[0] ?? null,
       inputText: inputs[0] ? inline(inputs[0]) : null,
-      output: path10.join(live.run.state.runDir, `${node.id}.out`),
+      output: path11.join(live.run.state.runDir, `${node.id}.out`),
       ...script ? { script } : {}
     });
     await this.emit({ kind: "step.waiting", at: this.now().toISOString(), runId: live.run.id, automationId: live.automation.id, stepId: node.id, task: kind });
   }
   async runScript(live, node, policy) {
     const inputs = this.inputs(live, node);
-    const output = node.type === "script" ? path10.join(live.run.state.runDir, `${node.id}.out`) : null;
+    const output = node.type === "script" ? path11.join(live.run.state.runDir, `${node.id}.out`) : null;
     const attempts = 1 + (policy.handoff ? 0 : policy.retries);
     const step = live.run.state.steps[node.id] ??= { attempts: 0 };
     let failure = null;
@@ -14395,10 +14733,10 @@ var Runner = class {
   }
   /** Keeps the newest run folders; never the one in flight. */
   prune(live) {
-    const root = path10.join(live.planDir, ".scaffold", "runs");
+    const root = path11.join(live.planDir, ".scaffold", "runs");
     const number4 = (name) => Number(name.split("-")[1]);
     const old = readdirSync(root).filter((name) => RUN_DIR.test(name) && name !== live.run.id).sort((a, b) => number4(b) - number4(a)).slice(KEEP_RUN_DIRS - 1);
-    for (const name of old) rmSync3(path10.join(root, name), { recursive: true, force: true });
+    for (const name of old) rmSync3(path11.join(root, name), { recursive: true, force: true });
   }
 };
 var io = "Read the step's input from the `input` file (or `inputText`) and write your result to the `output` file \u2014 or, if you can't write files, pass it as `output` when you resume.";
@@ -14420,7 +14758,7 @@ function blockedInstructions(node, failure) {
 var INLINE_LIMIT = 48e3;
 function inline(file2) {
   try {
-    const text = readFileSync6(file2, "utf8");
+    const text = readFileSync7(file2, "utf8");
     return text.length <= INLINE_LIMIT ? text : null;
   } catch {
     return null;
@@ -14429,8 +14767,8 @@ function inline(file2) {
 function scriptOf(node, planDir) {
   const file2 = (node.run ?? "").split(/\s+/).map((token) => token.replace(/^["']|["']$/g, "")).find((token) => /\.(py|js|mjs|cjs|ts|sh|rb|php|pl)$/.test(token));
   if (!file2) return null;
-  const full = path10.resolve(planDir, file2);
-  if (!full.startsWith(`${planDir}${path10.sep}`)) return null;
+  const full = path11.resolve(planDir, file2);
+  if (!full.startsWith(`${planDir}${path11.sep}`)) return null;
   const content = inline(full);
   return content === null ? null : { path: full, content };
 }
@@ -14444,7 +14782,7 @@ function sizeOf(file2) {
 function hasContent(file2) {
   if (!file2) return false;
   try {
-    const text = readFileSync6(file2, "utf8").trim();
+    const text = readFileSync7(file2, "utf8").trim();
     return text !== "" && text !== "[]" && text !== "{}" && text !== "null";
   } catch {
     return false;
@@ -14452,9 +14790,9 @@ function hasContent(file2) {
 }
 
 // src/runner/signals.ts
-import { chmodSync as chmodSync2, mkdirSync as mkdirSync10, readFileSync as readFileSync7, readdirSync as readdirSync2, renameSync as renameSync4, rmSync as rmSync4, writeFileSync as writeFileSync7 } from "node:fs";
-import path11 from "node:path";
-var listenersDir = (dataDir) => path11.join(dataDir, "listeners");
+import { chmodSync as chmodSync2, mkdirSync as mkdirSync10, readFileSync as readFileSync8, readdirSync as readdirSync2, renameSync as renameSync4, rmSync as rmSync4, writeFileSync as writeFileSync7 } from "node:fs";
+import path12 from "node:path";
+var listenersDir = (dataDir) => path12.join(dataDir, "listeners");
 function loopback(raw) {
   try {
     const url2 = new URL(raw);
@@ -14463,7 +14801,7 @@ function loopback(raw) {
     return false;
   }
 }
-function alive(pid) {
+function alive2(pid) {
   try {
     process.kill(pid, 0);
     return true;
@@ -14483,8 +14821,8 @@ function appSignals(dataDir, timeoutMs = 400) {
     await Promise.all(
       names.map(async (name) => {
         try {
-          const listener = JSON.parse(readFileSync7(path11.join(dir, name), "utf8"));
-          if (!Number.isInteger(listener.pid) || !alive(listener.pid) || !loopback(listener.url) || typeof listener.token !== "string") return;
+          const listener = JSON.parse(readFileSync8(path12.join(dir, name), "utf8"));
+          if (!Number.isInteger(listener.pid) || !alive2(listener.pid) || !loopback(listener.url) || typeof listener.token !== "string") return;
           await fetch(listener.url, {
             method: "POST",
             headers: { "content-type": "application/json", "x-scaffold-signal": listener.token },
@@ -14502,15 +14840,35 @@ function appSignals(dataDir, timeoutMs = 400) {
 // src/context.ts
 var LOCAL_ONLY_KEYS = /* @__PURE__ */ new Set(["pro-demo-key"]);
 function resolveKey(dataDir) {
-  const file2 = path12.join(dataDir, "key");
-  const fromFile = existsSync8(file2) ? readFileSync8(file2, "utf8").trim() || void 0 : void 0;
+  const file2 = path13.join(dataDir, "key");
+  const fromFile = existsSync8(file2) ? readFileSync9(file2, "utf8").trim() || void 0 : void 0;
   const fromEnv = (process.env.SCAFFOLD_CONNECTOR_KEY || process.env.CLAUDE_PLUGIN_OPTION_SCAFFOLD_KEY)?.trim();
   if (fromEnv && !fromEnv.startsWith("${") && !(LOCAL_ONLY_KEYS.has(fromEnv) && fromFile)) return fromEnv;
   return fromFile;
 }
+function startRepeats(job, deps) {
+  if (!deps.history.claimRepeats(job.automationId, process.pid, job.left)) return;
+  try {
+    const logDir = path13.join(path13.dirname(job.planPath), ".scaffold");
+    mkdirSync11(logDir, { recursive: true });
+    const log2 = openSync2(path13.join(logDir, "repeats.log"), "a");
+    const child = spawn4(deps.entry.node, [...process.execArgv, deps.entry.script, "repeat", job.planPath, "--left", String(job.left), "--gap", String(job.gapMinutes)], {
+      detached: true,
+      stdio: ["ignore", log2, log2],
+      env: { ...process.env, SCAFFOLD_REPEAT: "1", SCAFFOLD_STARTED_BY: deps.startedBy }
+    });
+    closeSync2(log2);
+    if (child.pid) deps.history.passRepeats(job.automationId, child.pid);
+    else deps.history.releaseRepeats(job.automationId);
+    child.on("error", () => deps.history.releaseRepeats(job.automationId));
+    child.unref();
+  } catch {
+    deps.history.releaseRepeats(job.automationId);
+  }
+}
 function openContext(log2) {
-  const dbPath = process.env.SCAFFOLD_CONNECTOR_DB || path12.join(process.env.HOME || ".", ".scaffold-connector", "connector.sqlite");
-  const dataDir = path12.dirname(dbPath);
+  const dbPath = process.env.SCAFFOLD_CONNECTOR_DB || path13.join(process.env.HOME || ".", ".scaffold-connector", "connector.sqlite");
+  const dataDir = path13.dirname(dbPath);
   const store = new KnowledgeStore(dbPath);
   const shareOutcomes = !/^(false|0|off|no)$/i.test(process.env.SCAFFOLD_SHARE_OUTCOMES?.trim() ?? "");
   const key = resolveKey(dataDir);
@@ -14522,7 +14880,7 @@ function openContext(log2) {
       baseUrl: apiUrl,
       apiKey: key,
       shareOutcomes,
-      outboxPath: path12.join(dataDir, "outbox.sqlite"),
+      outboxPath: path13.join(dataDir, "outbox.sqlite"),
       fallback: new LocalSession(store, void 0, { shareOutcomes: false }),
       log: log2
     });
@@ -14531,21 +14889,23 @@ function openContext(log2) {
   } else {
     session = new LocalSession(store, key, { shareOutcomes });
   }
-  const history = new RunHistory(path12.join(dataDir, "runs.sqlite"));
+  const history = new RunHistory(path13.join(dataDir, "runs.sqlite"));
   const host = process.env.SCAFFOLD_HOST === "codex" ? "codex" : "claude";
   const starter = process.env.SCAFFOLD_STARTED_BY;
+  const entry = {
+    node: process.execPath,
+    script: path13.resolve(process.argv[1] ?? "server.mjs"),
+    ...process.env.SCAFFOLD_CONNECTOR_DB ? { dbPath } : {}
+  };
   const runner = new Runner({
     history,
     session,
     afterRun: session instanceof RemoteSession ? accountSyncHook(session, history) : void 0,
     signal: appSignals(dataDir),
-    startedBy: starter === "app" || starter === "schedule" ? starter : host
+    startedBy: starter === "app" || starter === "schedule" ? starter : host,
+    repeating: process.env.SCAFFOLD_REPEAT === "1",
+    startRepeats: (job) => startRepeats(job, { history, entry, startedBy: starter === "app" ? "app" : "schedule" })
   });
-  const entry = {
-    node: process.execPath,
-    script: path12.resolve(process.argv[1] ?? "server.mjs"),
-    ...process.env.SCAFFOLD_CONNECTOR_DB ? { dbPath } : {}
-  };
   const mode = session instanceof RemoteSession ? "hosted" : "local";
   return { dbPath, dataDir, store, session, history, runner, entry, mode, host };
 }
@@ -14999,14 +15359,14 @@ async function dispatch(rpc, surface) {
 }
 
 // src/method.ts
-import { existsSync as existsSync9, readFileSync as readFileSync9 } from "node:fs";
-import path13 from "node:path";
+import { existsSync as existsSync9, readFileSync as readFileSync10 } from "node:fs";
+import path14 from "node:path";
 import { fileURLToPath } from "node:url";
-var here = path13.dirname(fileURLToPath(import.meta.url));
-var candidates = [path13.join(here, "method.md"), path13.join(here, "..", "skill", "SKILL.md")];
+var here = path14.dirname(fileURLToPath(import.meta.url));
+var candidates = [path14.join(here, "method.md"), path14.join(here, "..", "skill", "SKILL.md")];
 var found = candidates.find((file2) => existsSync9(file2));
 if (!found) throw new Error(`Scaffold's method is missing \u2014 looked for ${candidates.join(" and ")}`);
-var METHOD = readFileSync9(found, "utf8");
+var METHOD = readFileSync10(found, "utf8");
 
 // src/planning/diagram.ts
 function safeId(raw, index) {
@@ -15116,7 +15476,7 @@ ${files.join("\n")}`.toLowerCase();
 }
 
 // src/runner/automation.ts
-import path14 from "node:path";
+import path15 from "node:path";
 var q = (text) => /^[\w./-]+$/.test(text) ? text : `'${text.replace(/'/g, `'\\''`)}'`;
 async function createAutomation(rawInput, deps) {
   const parsed = createAutomationInput.safeParse(rawInput);
@@ -15200,9 +15560,9 @@ async function createAutomation(rawInput, deps) {
   if (input.scheduler === "cron" && needsModel) {
     caveats.push(`cron cannot run the agent steps on its own, so this recommends ${scheduleName(where)} instead.`);
   }
-  const planFile = path14.basename(planPath);
+  const planFile = path15.basename(planPath);
   const cron = input.cron ?? null;
-  const crontab = where === "cron" || headless ? `${cron ?? "0 9 * * *"} cd ${q(planDir)} && ${deps.entry.dbPath ? `SCAFFOLD_CONNECTOR_DB=${q(deps.entry.dbPath)} ` : ""}${headless ? `PATH=${q([.../* @__PURE__ */ new Set([path14.dirname(deps.entry.node), path14.dirname(agentExecutable), ...fallbackExecutable ? [path14.dirname(fallbackExecutable)] : [], "/usr/local/bin", "/usr/bin", "/bin"])].join(":"))} ` : ""}${q(deps.entry.node)} ${q(deps.entry.script)} run ${q(planFile)}${headless ? ` --agent ${where === "codex-cli" ? "codex" : "claude-code"} --agent-bin ${q(agentExecutable)}${fallbackExecutable ? ` --fallback ${where === "codex-cli" ? "claude-code" : "codex"} --fallback-bin ${q(fallbackExecutable)}` : ""}` : ""} >> .scaffold/cron.log 2>&1` : null;
+  const crontab = where === "cron" || headless ? `${cron ?? "0 9 * * *"} cd ${q(planDir)} && ${deps.entry.dbPath ? `SCAFFOLD_CONNECTOR_DB=${q(deps.entry.dbPath)} ` : ""}${headless ? `PATH=${q([.../* @__PURE__ */ new Set([path15.dirname(deps.entry.node), path15.dirname(agentExecutable), ...fallbackExecutable ? [path15.dirname(fallbackExecutable)] : [], "/usr/local/bin", "/usr/bin", "/bin"])].join(":"))} ` : ""}${q(deps.entry.node)} ${q(deps.entry.script)} run ${q(planFile)}${headless ? ` --agent ${where === "codex-cli" ? "codex" : "claude-code"} --agent-bin ${q(agentExecutable)}${fallbackExecutable ? ` --fallback ${where === "codex-cli" ? "claude-code" : "codex"} --fallback-bin ${q(fallbackExecutable)}` : ""}` : ""} >> .scaffold/cron.log 2>&1` : null;
   const prompt = where !== "cron" && !headless ? scheduledPrompt(name, planPath) : null;
   const now = deps.now ?? /* @__PURE__ */ new Date();
   deps.history.saveAutomation(
@@ -15591,7 +15951,7 @@ async function callTool(name, args, ctx) {
 }
 
 // src/server.ts
-var SERVER_INFO = { name: "scaffold", title: "Scaffold", version: "0.12.0", icons: ICONS };
+var SERVER_INFO = { name: "scaffold", title: "Scaffold", version: "0.13.0", icons: ICONS };
 var INSTRUCTIONS = [
   "Scaffold turns a recurring workflow into a durable automation: scripts for the deterministic steps, the agent only where judgement is needed, and runs that heal from their own history.",
   "Its tools fit together in order: get_method explains the method, render_plan draws a plan, classify_plan checks it against shared run evidence, write_automation_files writes the scripts and scaffold.plan.json where a client can't write files itself, and schedule_automation registers the plan and returns the prompt a scheduler runs it with.",
@@ -15709,6 +16069,13 @@ ${prepared.problems.map((p) => `  \u2022 ${p.message}`).join("\n")}
     }
     planPath = prepared.planPath;
   }
+  const missing = process.env.SCAFFOLD_STARTED_BY === "schedule" ? missingCredentials(planPath) : [];
+  if (missing.length) {
+    process.stdout.write(`[${(/* @__PURE__ */ new Date()).toISOString()}] ${MARK} \u2014 not run: it needs ${missing.join(", ")}. Add ${missing.length === 1 ? "it" : "them"} in Scaffold for Mac.
+
+`);
+    return 0;
+  }
   let report;
   try {
     report = flags.agents.length ? await runHeadless(planPath, flags.agents, { runner, history, executables: flags.executables, limits: agentLimits(dataDir) }) : await runner.start(planPath, "unattended");
@@ -15718,6 +16085,56 @@ ${prepared.problems.map((p) => `  \u2022 ${p.message}`).join("\n")}
     return code;
   }
   return printReport(report);
+}
+var AGENT_DIRS = ["/opt/homebrew/bin", "/usr/local/bin", path16.join(process.env.HOME ?? "", ".local", "bin"), path16.join(process.env.HOME ?? "", ".claude", "local")];
+function repeatAgents(scheduler) {
+  process.env.PATH = [.../* @__PURE__ */ new Set([...(process.env.PATH ?? "").split(path16.delimiter).filter(Boolean), ...AGENT_DIRS])].join(path16.delimiter);
+  const order = scheduler?.startsWith("codex") || scheduler === "chatgpt" ? ["codex", "claude-code"] : ["claude-code", "codex"];
+  const executables = {};
+  const agents = order.filter((agent) => {
+    try {
+      executables[agent] = resolveAgent(agent);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  return { agents, executables };
+}
+async function repeatFromCommandLine() {
+  const [planPath, leftFlag, left, gapFlag, gap] = process.argv.slice(3);
+  const count2 = Number(left), minutes = Number(gap);
+  if (!planPath || leftFlag !== "--left" || gapFlag !== "--gap" || !(Number.isInteger(count2) && count2 >= 1 && count2 < MAX_REPEAT) || !(Number.isInteger(minutes) && minutes >= 0 && minutes <= MAX_REPEAT_GAP_MINUTES)) {
+    process.stderr.write(`usage: server.mjs repeat <plan> --left 1-${MAX_REPEAT - 1} --gap 0-${MAX_REPEAT_GAP_MINUTES}
+`);
+    return 64;
+  }
+  const { runner, history, dataDir } = openContext();
+  const loaded = loadPlanFile(planPath);
+  if (!loaded.ok) return printReport(loaded);
+  const id = automationId(loaded.planPath);
+  const hasAgentSteps = loaded.plan.nodes.some((node) => node.type === "agent");
+  const outcome = await runRepeats({
+    history,
+    automationId: id,
+    left: count2,
+    gapMinutes: minutes,
+    runOnce: async () => {
+      const line = hasAgentSteps ? repeatAgents(history.automation(id)?.scheduler ?? null) : { agents: [], executables: {} };
+      try {
+        const report = line.agents.length ? await runHeadless(loaded.planPath, line.agents, { runner, history, executables: line.executables, limits: agentLimits(dataDir) }) : await runner.start(loaded.planPath, "unattended");
+        printReport(report);
+        return report;
+      } catch (error40) {
+        if (agentsOut(error40) === null) throw error40;
+        return { ok: false, problems: [{ path: "agent", message: "no agent on this computer could take its agent steps" }] };
+      }
+    }
+  });
+  process.stdout.write(`[${(/* @__PURE__ */ new Date()).toISOString()}] ${MARK} \u2014 repeats: ${outcome.ran} of ${count2} ran${outcome.stopped ? `; stopped: ${outcome.stopped}` : ""}
+
+`);
+  return 0;
 }
 async function finishFromCommandLine() {
   const [flag, runId, ...rest] = process.argv.slice(3);
@@ -15771,6 +16188,12 @@ if (process.argv[2] === "link") {
 } else if (process.argv[2] === "run") {
   void runFromCommandLine(process.argv[3], process.argv[4]).then((code) => process.exit(code)).catch((error40) => {
     process.stderr.write(`${error40 instanceof Error ? error40.message : "Run failed"}
+`);
+    process.exit(1);
+  });
+} else if (process.argv[2] === "repeat") {
+  void repeatFromCommandLine().then((code) => process.exit(code)).catch((error40) => {
+    process.stderr.write(`${error40 instanceof Error ? error40.message : "Repeats failed"}
 `);
     process.exit(1);
   });

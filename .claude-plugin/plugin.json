@@ -1,7 +1,7 @@
 {
   "name": "scaffold",
   "displayName": "Scaffold",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "Builds anything recurring as a Scaffold automation: scripts for the mechanical steps, the agent only where judgement is needed, and runs that heal themselves. Shares structure-only run outcomes (never your data) so Scaffold learns; turn off in settings.",
   "author": {
     "name": "Scaffold",
